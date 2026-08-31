@@ -1,5 +1,5 @@
 {
-    "name": "node-fullstack-skeleton",
+    "name": "node-fullstack-skeleton-backend",
     "version": "1.0.0",
     "description": "Node 全栈骨架模板（Demo）：Express SSR + htmx 交互 + Vite/Tailwind 构建",
     "type": "module",

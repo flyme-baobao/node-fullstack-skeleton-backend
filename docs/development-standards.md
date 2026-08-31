@@ -8,8 +8,8 @@
 
 | 仓库 | 角色 | 用途 |
 |---|---|---|
-| **GitHub**（`flyme-baoabo/node-fullstack-skeleton`） | **主仓库** | 日常开发、提交、发布 |
-| **Gitee**（`gitee/flyme-baoabo/node-fullstack-skeleton`） | **镜像/灾备** | GitHub 不可用时的临时提交地 |
+| **GitHub**（`flyme-baoabo/node-fullstack-skeleton-backend`） | **主仓库** | 日常开发、提交、发布 |
+| **Gitee**（`gitee/flyme-baoabo/node-fullstack-skeleton-backend`） | **镜像/灾备** | GitHub 不可用时的临时提交地 |
 
 ```mermaid
 flowchart LR
