@@ -1,0 +1,144 @@
+version: "1.0"
+name: Node全栈构建部署流水线
+displayName: Node全栈构建部署流水线
+
+# 手动触发（Gitee Go：trigger: manual）
+triggers:
+  trigger: manual
+notify: []
+strategy:
+  blocking: true
+
+# ===================== 变量总览 =====================
+# 一、本文件 variables: 段（非敏感，写死或自动生成）
+#   REGISTRY          阿里云 ACR 公网镜像仓库 host（个人版；build/CI 与 ECS pull 均用，公网）
+#                     注意：Gitee Go 变量不做 shell 展开，避免 ${IMAGE_NAME%%/*} 无法解析，故单独声明
+#   IMAGE_NAME        ACR 完整镜像仓库地址（由 REGISTRY 拼接）
+#   IMAGE_NAME_VPC    ACR 内网（-vpc）地址——个人版不支持同账号 ECS 内网拉取（官方 2024-09-04 后），暂未启用
+#   IMAGE_TAG         镜像 tag，供 build@docker 之外的引用（部署 shell 用）；
+#                      build@docker 的 tag 直接引用平台内置 ${GITEE_COMMIT}，
+#                     不经过本 variables 段（variables 里不展开平台内置变量）
+#   COMPOSE_WAIT_TIMEOUT  compose 部署健康等待超时
+# 二、平台 Secrets 中配置的变量（CI 中直接以环境变量引用）
+#   ＊配置入口：流水线 → Gitee Go → 环境变量/凭据（与仓库 Secrets 入口不同）
+#   ├─ ACR 登录（必填）    REGISTRY_USER / REGISTRY_PASSWORD
+#   ├─ 生产 SSH（必填）    DEPLOY_SERVER_HOST / DEPLOY_PATH / DEPLOY_SSH_PRIVATE_KEY
+#   ├─ DB/Redis（必填）    DB_USER / DB_PASSWORD / DB_NAME / REDIS_PASSWORD
+#   └─ 运行期/compose插值（可选，缺省用默认值）
+#                         SERVER_PORT(3000) / NODE_ENV(production) / TZ(Asia/Shanghai)
+#                         DB_POOL_MAX(10) / DB_IDLE_TIMEOUT_MS(30000) / DB_CONNECTION_TIMEOUT_MS(5000)
+# ===========================================================
+
+variables:
+  REGISTRY: "crpi-1vp5deeta128cxtu.cn-beijing.personal.cr.aliyuncs.com"
+  IMAGE_NAME: "${REGISTRY}/my-app-flyme/node-fullstack-skeleton"
+  IMAGE_NAME_VPC: "crpi-1vp5deeta128cxtu-vpc.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton"
+  IMAGE_TAG: "${GITEE_PIPELINE_BUILD_NUMBER}"
+  COMPOSE_WAIT_TIMEOUT: "60"
+
+# ===================== 结构说明（Gitee Go schema） =====================
+# 层级：stages[] → 阶段对象（name/...）→ steps[] → step
+#   stages[] —— 阶段数组，每个元素直接是一个阶段对象（无嵌套 stage 键）
+#   阶段对象   —— 如「构建推送镜像」/「部署到ECS」，字段：
+#                 name（同名 id，被 needs 引用）/ displayName /
+#                 strategy / trigger / needs / steps[]
+#   steps[]  —— step 数组，按顺序执行
+#   step     —— 最小执行单元：shell@agent（CI 执行机跑 shell，stage1/2 均用它）
+#
+#   step     —— 最小执行单元：build@docker（构建镜像）/ shell@agent（CI 执行机跑 shell）
+#
+# 本文件两个阶段：
+#   stage1 构建推送镜像（build@docker 登录 ACR 构建+推送）
+#   stage2 部署到ECS（needs 构建推送镜像；shell@agent 在 CI 机 SSH 主机 pull + compose up）
+#   —— 暂无 ECS，部署阶段先注释，后续恢复此段（与 github-ci.yml 的做法一致）
+# =====================================================================
+stages:
+  # ============================================================
+  # stage 1 —— 构建并推送镜像（在 CI 执行机上）
+  #   build + push 到 ACR，不触碰生产服务器（SSH 全部留给 stage 2）
+  # ============================================================
+  - name: 构建推送镜像
+    displayName: 构建推送镜像
+    strategy: naturally
+    trigger: auto
+    steps:
+      # Gitee Go 内置 docker 构建插件：构建 Dockerfile 镜像并推送（唯一能执行、有日志的插件）
+      # 不用 shell@agent：该插件类型在 Gitee Go 不可用，会直接被 schema 拒绝（无构建日志、立即失败）。
+      - step: build@docker
+        name: ""
+        displayName: 镜像构建并推送
+        type: account                     # account = 登录仓库后推送
+        # repository 写死完整地址，避免 build@docker 对 ${REGISTRY} 嵌套变量二次映射不展开的坑
+        repository: ${IMAGE_NAME}
+        username: ${REGISTRY_USER}             # ACR 访问凭证用户名，明文固定
+        password: ${REGISTRY_PASSWORD}    # ACR 访问凭证固定密码，secret 展开
+        tag: ${IMAGE_TAG}
+        dockerfile: ./Dockerfile
+        context: ""
+        artifacts: ""
+        isCache: false
+        notify: []
+        strategy:
+          retry: "0"
+          resource:
+            cpu: "2"
+            memory: "4"
+
+  # ============================================================
+  # stage 2 —— 部署（全程在主机上，通过 ssh 执行）
+  # 依赖 stage 1（镜像已推送 ACR）成功
+  # 主机上：login ACR → pull 镜像 → compose up
+  # 暂无 ECS：先注释，避免误触发
+  # ============================================================
+  - name: 部署到ECS
+    displayName: 部署到ECS
+    strategy: naturally
+    trigger: auto
+    needs: [ 构建推送镜像 ]
+    steps:
+      # shell@agent：在 CI 执行机上跑 shell（脚本内 ssh 到 ECS 主机 pull + compose up）
+      - step: shell@agent
+        name: ""
+        displayName: ECS pull镜像 + docker compose部署
+        script: |
+          # ========== 1. Secret 非空校验：缺任何必填 Secret 立即失败并列出缺哪个 ==========
+          # 涵盖 CI/CD 基建 + docker-compose 运行期（compose 实际引用）全量变量
+          check_vars=(
+            REGISTRY_USER REGISTRY_PASSWORD
+            DEPLOY_SERVER_HOST DEPLOY_PATH DEPLOY_SSH_PRIVATE_KEY
+            DB_USER DB_PASSWORD DB_NAME REDIS_PASSWORD
+          )
+          for name in "${check_vars[@]}"; do
+            val=$(eval "echo \$$name")
+            if [ -z "$val" ]; then
+              echo "❌ GiteeGo 流水线缺少变量：$name"
+              exit 1
+            fi
+          done
+  
+          # ========== 2. 本地执行机加载 SSH agent（供后续 ssh 复用） ==========
+          eval $(ssh-agent -s)
+          echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - >/dev/null
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan "${DEPLOY_SERVER_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+  
+          # ========== 3. 远程 SSH 执行部署（全程在主机上） ==========
+          # 镜像已由 stage 1 推送到 ACR，主机只拉取 + compose up
+          # 没有 .env 落盘：compose 插值变量由 Secret 注入，经远程 shell export 提供
+          # 只 export compose 真正 ${...} 插值的变量；VITE_PORT / DB_HOST / DB_PORT / REDIS_HOST/PORT 等无需导出
+          ssh -o StrictHostKeyChecking=no root@${DEPLOY_SERVER_HOST} "
+            set -e
+            cd ${DEPLOY_PATH} &&
+            # —— 主机侧 ACR 登录 + 拉取 build 已推送的镜像 ——
+            echo ${REGISTRY_PASSWORD} | docker login ${REGISTRY} -u ${REGISTRY_USER} --password-stdin &&
+            docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
+            # —— 部署：compose 插值变量由 shell export 提供 ——
+            export IMAGE_NAME=${IMAGE_NAME} IMAGE_TAG=${IMAGE_TAG} \
+                   SERVER_PORT=${SERVER_PORT:-3000} NODE_ENV=${NODE_ENV:-production} \
+                   DB_USER=${DB_USER} DB_PASSWORD=${DB_PASSWORD} DB_NAME=${DB_NAME} \
+                   REDIS_PASSWORD=${REDIS_PASSWORD} \
+                   DB_POOL_MAX=${DB_POOL_MAX:-10} DB_IDLE_TIMEOUT_MS=${DB_IDLE_TIMEOUT_MS:-30000} DB_CONNECTION_TIMEOUT_MS=${DB_CONNECTION_TIMEOUT_MS:-5000} \
+                   TZ=${TZ:-Asia/Shanghai} && \
+            docker compose up -d --wait --wait-timeout ${COMPOSE_WAIT_TIMEOUT}
+          "

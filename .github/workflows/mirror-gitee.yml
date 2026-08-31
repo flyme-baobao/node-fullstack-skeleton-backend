@@ -1,0 +1,18 @@
+# .github/workflows/mirror-gitee.yml
+name: Sync To Gitee
+on:
+  push:
+    branches: [ main, master, develop, spa ] #需要同步的分支
+  workflow_dispatch: # 支持在 Actions 页面手动触发
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Yikun/hub-mirror-action@master
+        with:
+          src: github/${{ github.repository_owner }}
+          dst: gitee/${{ secrets.GITEE_USER }}
+          dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
+          dst_token: ${{ secrets.GITEE_TOKEN }}
+          static_list: ${{ github.event.repository.name }}
+          force_update: true   # ←加上这一行！强制覆盖gitee，丢掉gitee侧所有网页操作生成的提交

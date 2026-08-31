@@ -1,0 +1,70 @@
+{
+    "app": {
+        "title": "To-do List"
+    },
+    "nav": {
+        "home": "Home",
+        "list": "Todo list",
+        "stats": "Overview",
+        "lang": "Language"
+    },
+    "hero": {
+        "title": "Get things done, task by task",
+        "description": "Add, mark complete — every update goes through a <code class=\"rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-emerald-700\">htmx</code> partial refresh, no full page reload. Try adding one."
+    },
+    "home": {
+        "cta_title": "Manage your to-dos",
+        "cta_body": "Add, complete and delete tasks in one place on the /list page — all with htmx partial refreshes.",
+        "cta_action": "Go to todo list →"
+    },
+    "validation": {
+        "required": "Please enter a to-do item!"
+    },
+    "todos": {
+        "title": "Todo list",
+        "section_hint": "Click “Done” to toggle the status",
+        "all": "All",
+        "done": "Completed",
+        "pending": "Pending",
+        "count": "A total of <b>{{count}}</b> todo(s)",
+        "empty": "Nothing here yet, add a task ✨",
+        "refresh": "Refresh",
+        "placeholder": "What needs doing?",
+        "add": "Add"
+    },
+    "confirm": {
+        "title": "Confirm action",
+        "undo_title": "Undo confirmation",
+        "undo_msg": "Are you sure you want to undo this to-do?",
+        "undo_btn": "Undo",
+        "mark_title": "Complete confirmation",
+        "mark_msg": "Are you sure you want to mark this to-do as done?",
+        "mark_btn": "Done",
+        "delete_title": "Delete confirmation",
+        "delete_msg": "This cannot be undone. Are you sure you want to delete this to-do?",
+        "delete_btn": "Delete",
+        "delete_accept": "Delete",
+        "confirm_btn": "Confirm",
+        "cancel_btn": "Cancel"
+    },
+    "toast": {
+        "network_error": "Network request failed, please check your connection",
+        "request_failed": "Request failed ({{status}}): {{message}}",        
+        "swap_failed": "Page update failed, please refresh and try again",        
+        "change_language_success": "Language switched successfully",
+        "change_language_failed": "Failed to switch language",
+        "get_current_language_failed": "Failed to load current language, please try again later"
+    },
+    "errors": {
+        "todo_empty": "The to-do item cannot be empty!",
+        "invalid_id": "Invalid to-do id",
+        "unsupported_lang": "Unsupported language: {{lang}}",
+        "toggle_not_found": "To-do to toggle not found or already deleted",
+        "remove_not_found": "To-do to remove not found or already deleted",
+        "create_failed": "Failed to create to-do, please try again later",
+        "remove_failed": "Failed to delete to-do, please try again later",
+        "bad_request": "Malformed request body",
+        "not_found": "Resource not found",
+        "internal_error": "Internal server error, please try again later"
+    }
+}

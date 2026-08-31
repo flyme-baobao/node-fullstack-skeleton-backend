@@ -1,0 +1,70 @@
+{
+    "app": {
+        "title": "待办清单"
+    },
+    "nav": {
+        "home": "首页",
+        "list": "待办清单",
+        "stats": "概览",
+        "lang": "语言"
+    },
+    "hero": {
+        "title": "高效办，待办清单",
+        "description": "添加、标记完成——所有更新都通过 <code class=\"rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-emerald-700\">htmx</code> 局部刷新完成，无需整页跳转。加一条试试吧。"
+    },
+    "home": {
+        "cta_title": "管理你的待办",
+        "cta_body": "添加、标记完成、删除——集中在 /list 页一次搞定，全程 htmx 局部刷新。",
+        "cta_action": "前往待办清单 →"
+    },
+    "validation": {
+        "required": "请输入待办内容！"
+    },
+    "todos": {
+        "title": "待办清单",
+        "section_hint": "点击“完成”即可切换状态",
+        "all": "全部",
+        "done": "已完成",
+        "pending": "待完成",
+        "count": "一共 <b>{{count}}</b> 条待办",
+        "empty": "暂无待办，添加一条吧 ✨",
+        "refresh": "刷新列表",
+        "placeholder": "输入要做的事…",
+        "add": "添加"
+    },
+    "confirm": {
+        "title": "确认操作",
+        "undo_title": "撤销确认",
+        "undo_msg": "确定要撤销这条待办吗？",
+        "undo_btn": "撤销",
+        "mark_title": "完成确认",
+        "mark_msg": "确定要将这条待办标记为完成吗？",
+        "mark_btn": "完成",
+        "delete_title": "删除确认",
+        "delete_msg": "删除后无法恢复，确定要删除这条待办吗？",
+        "delete_btn": "删除",
+        "delete_accept": "确认删除",
+        "confirm_btn": "确认",
+        "cancel_btn": "取消"
+    },
+    "toast": {
+        "network_error": "网络请求失败，请检查网络连接",
+        "request_failed": "请求失败（{{status}}）：{{message}}",
+        "swap_failed": "页面更新失败，请刷新重试",
+        "change_language_success": "语言切换成功!",
+        "change_language_failed": "切换语言失败!",
+        "get_current_language_failed": "获取当前语言包失败，请稍后重试"
+    },
+    "errors": {
+        "todo_empty": "待办内容不能为空！",
+        "invalid_id": "无效的待办编号",
+        "unsupported_lang": "不支持的语言：{{lang}}",
+        "toggle_not_found": "要切换的待办不存在或已被删除",
+        "remove_not_found": "要删除的待办不存在或已被删除",
+        "create_failed": "新增待办失败，请稍后重试",
+        "remove_failed": "删除待办失败，请稍后重试",
+        "bad_request": "请求格式有误",
+        "not_found": "资源不存在",
+        "internal_error": "服务器开小差了，请稍后再试"
+    }
+}

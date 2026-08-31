@@ -1,0 +1,26 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "noEmit": true,
+        "allowImportingTsExtensions": true,
+        "types": [
+            "node",
+            "vite/client"
+        ]
+    },
+    "include": [
+        "client/src",
+        "server/src",
+        "test"
+    ],
+    "exclude": [
+        "server/src/legacy"
+    ]
+}

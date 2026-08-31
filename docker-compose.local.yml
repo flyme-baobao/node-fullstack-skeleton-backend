@@ -1,0 +1,24 @@
+# docker-compose.local.yml —— 本地全容器模拟生产的「差异覆盖」override
+#
+# ⚠️ 它不独立使用，必须配合 base（docker-compose.yml）共同加载：
+#     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Compose 多文件合并规则：后面的文件按 key 覆盖前面的，其余共享。
+# base 已提供 networks/volumes/postgres/redis 及 fullstack-app 的
+# ports / environment / depends_on / healthcheck 等全部公共配置；
+# 本文件只覆盖 fullstack-app 一个「来源差异」：从「用 CI 预构建镜像」改为「本地 Docker 构建」。
+
+services:
+  fullstack-app:
+    # 核心差异 1/2：覆盖镜像来源为「本地构建」。
+    # 不传 MODE 即模式 production（vite build 无 sourcemap）；
+    # 需调试镜像时临时导出：MODE=development docker compose … up -d --build。
+    build:
+      context: .
+      args:
+        MODE: ${MODE:-production}
+    # 核心差异 2/2：补一个本地镜像 tag。base 的 image 依赖 CI 才有的
+    # IMAGE_NAME/IMAGE_TAG，本地无此变量；不覆盖 image 会变成空值导致无效镜像名。
+    # Dockerfile 构建产物会以这个 tag 命名（默认 node-fullstack-skeleton:local）。
+    # 默认值仅作兜底：可临时导出 IMAGE_NAME / IMAGE_TAG 覆盖。
+    image: ${IMAGE_NAME:-node-fullstack-skeleton}:${IMAGE_TAG:-local}

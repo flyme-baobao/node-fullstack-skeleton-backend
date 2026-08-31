@@ -1,0 +1,51 @@
+{
+    "name": "node-fullstack-skeleton",
+    "version": "1.0.0",
+    "description": "Node 全栈骨架模板（Demo）：Express SSR + htmx 交互 + Vite/Tailwind 构建",
+    "type": "module",
+    "main": "server/src/index.ts",
+    "scripts": {
+        "dev": "concurrently -k --names server,client --prefix-colors blue,green \"npm:dev:server\" \"npm:dev:client\"",
+        "dev:server": "cross-env NODE_ENV=development node --watch-path=server --watch-preserve-output --import tsx server/src/index.ts",
+        "dev:client": "cross-env NODE_ENV=development node scripts/dev-client.js",
+        "build:client": "node scripts/build-client.js",
+        "build:client:dev": "node scripts/build-client.js --mode development",
+        "build:server": "tsc -p tsconfig.server.json && node scripts/build-server.js",
+        "build:all": "npm run build:server && npm run build:client",
+        "typecheck": "tsc --noEmit",
+        "test": "tsx --test --test-concurrency=1",
+        "test:watch": "tsx --test --watch"
+    },
+    "keywords": [
+        "htmx"
+    ],
+    "author": "flyme",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "dotenv": "^17.4.2",
+        "ejs": "^6.0.1",
+        "express": "^5.2.1",
+        "htmx.org": "^2.0.10",
+        "i18next": "^26.3.6",
+        "i18next-http-middleware": "^3.9.8"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.1.12",
+        "@types/express": "^5.0.6",
+        "@types/node": "^26.2.0",
+        "@types/supertest": "^7.2.1",
+        "concurrently": "^9.2.1",
+        "cross-env": "^10.1.0",
+        "jiti": "^2.7.0",
+        "sass": "^1.102.0",
+        "supertest": "^7.2.2",
+        "tailwindcss": "^4.1.12",
+        "tsx": "^4.23.12",
+        "typescript": "^7.0.2",
+        "vite": "^8.2.1",
+        "wait-on": "^8.0.5"
+    }
+}

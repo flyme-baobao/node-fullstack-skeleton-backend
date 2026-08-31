@@ -1,0 +1,74 @@
+<%# app-layout：整站应用外壳（header + 内容出口 #outlet + footer）。
+   由 res.renderPage(...) 注入 outletContent；showHeader=false 时隐藏 header（登录/注册页用）。
+   采用内联表达式默认 true，避免在模板作用域声明变量造成 TDZ 报错。 %>
+<% if (typeof showHeader !== 'undefined' ? showHeader : true) { %>
+    <header class="shrink-0 border-b border-gray-200/80 bg-white/80 backdrop-blur">
+        <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+            <a href="/" class="flex items-center gap-2 font-bold text-emerald-600">
+                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">✓</span>
+                <span class="tracking-tight text-gray-800">TaskFlow</span>
+            </a>
+            <!-- 右侧操作区：导航 + 语言切换，间距 20px(gap-5) -->
+            <div class="flex items-center gap-5">
+                <nav class="flex items-center gap-4 text-sm text-gray-500">
+                    <a href="/" class="<%= currentPage === '/' ? 'font-medium text-emerald-600' : 'hover:text-emerald-600' %>">
+                        <%= t('nav.home') %>
+                    </a>
+                    <a href="/list" class="<%= currentPage === '/list' ? 'font-medium text-emerald-600' : 'hover:text-emerald-600' %>">
+                        <%= t('nav.list') %>
+                    </a>
+                </nav>
+                <!-- 语言切换下拉：自定义 ul/li 菜单，替代原生 select（样式可控、可高亮） -->
+                <div class="relative change-language">
+                    <button type="button" aria-label="<%= t('nav.lang') %>" aria-haspopup="listbox"
+                        aria-expanded="false"
+                        class="lang-trigger flex w-30 cursor-pointer items-center justify-between gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white py-1.5 px-3 text-xs font-medium text-gray-600 shadow-sm transition hover:border-emerald-300 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                        <svg class="h-3.5 w-3.5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"
+                            aria-hidden="true">
+                            <path fill-rule="evenodd"
+                                d="M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM3.6 9a7.36 7.36 0 0 1 2.31-4.1L.71 9.6A7.35 7.35 0 0 0 3.6 9Zm3.6-4.22A6.98 6.98 0 0 1 10 4.22a6.98 6.98 0 0 1 2.8.52L14.33 6.6H5.67l1.53-1.86ZM5.6 4.32A7.36 7.36 0 0 1 7.01 6H3.28a7.33 7.33 0 0 1 2.32-1.69ZM3.6 6h3.6a6.98 6.98 0 0 1-2.16 5.24L3.6 6ZM5.9 12.76a6.98 6.98 0 0 1-.83-2.32l2.56 2.14a7.37 7.37 0 0 1-1.73.18ZM8.6 16a6.98 6.98 0 0 1-1.6-.4l.5-1.5h3.6l.5 1.5a6.98 6.98 0 0 1-1.6.4 7 7 0 0 1-1.4.1Z" />
+                        </svg>
+                        <span class="lang-label min-w-6">
+                            <%= currentLocale === 'zh-CN' ? '中文' : 'English' %>
+                        </span>
+                        <svg class="lang-arrow h-3 w-3 text-gray-400 transition-transform duration-200"
+                            viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="m6 8 4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                    <ul role="listbox" aria-label="<%= t('nav.lang') %>"
+                        class="lang-menu absolute right-0 z-30 mt-2 w-32 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-lg"
+                        hidden>
+                        <li>
+                            <a href="#" data-lang="zh-CN" role="option" aria-selected="<%= currentLocale === 'zh-CN' %>"
+                                class="flex w-full items-center rounded-lg px-2.5 py-2 text-xs font-medium text-gray-600 transition hover:bg-emerald-50 hover:text-emerald-700 <%= currentLocale === 'zh-CN' ? 'bg-emerald-50 text-emerald-700' : '' %>">
+                                中文
+                                <span
+                                    class="ml-auto text-emerald-600 <%= currentLocale === 'zh-CN' ? 'opacity-100' : 'opacity-0' %>">✓</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-lang="en-US" role="option" aria-selected="<%= currentLocale === 'en-US' %>"
+                                class="flex w-full items-center rounded-lg px-2.5 py-2 text-xs font-medium text-gray-600 transition hover:bg-emerald-50 hover:text-emerald-700 <%= currentLocale === 'en-US' ? 'bg-emerald-50 text-emerald-700' : '' %>">
+                                English
+                                <span
+                                    class="ml-auto text-emerald-600 <%= currentLocale === 'en-US' ? 'opacity-100' : 'opacity-0' %>">✓</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+<% } %>
+
+<!-- 内容出口：各页面内容经 renderPage 注入 outletContent，注入 <main id="outlet"> -->
+<main id="outlet" class="mx-auto w-full max-w-5xl flex-1 min-h-0 overflow-hidden px-4 py-10">
+    <%- outletContent %>
+</main>
+
+<footer class="shrink-0 border-t border-gray-200/80 bg-white/80 py-4 backdrop-blur">
+    <div class="mx-auto flex max-w-5xl items-center justify-center px-4 text-center text-xs text-gray-400">
+        © <%= new Date().getFullYear() %> htmx-project · htmx + Express + Vite + Tailwind CSS
+    </div>
+</footer>

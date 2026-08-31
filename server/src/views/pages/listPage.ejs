@@ -1,0 +1,41 @@
+<!--
+    待办清单页 /list 的内容（经 renderPage 注入 app-layout 的 #outlet）。
+    这里把「标题 + 刷新 + 表单 + 列表」作为一个整体（todos 卡片）复用:
+    form 的 hx-target="#todo-list" 与 hx-swap="afterbegin" 强耦合下面的#todo,
+    拆开会破坏「新增后回填列表」的交互，因此整个卡片一起搬进 /list。
+-->
+<div class="card border border-gray-100 p-6">
+    <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900">
+                <%= t('todos.title') %>
+            </h3>
+            <p class="text-xs text-gray-400">
+                <%= t('todos.section_hint') %>
+            </p>
+            <p class="text-xs text-gray-400"><%- t('todos.count', { count: todos.length }) %></p>
+        </div>
+        <!-- htmx 手动刷新列表 -->
+        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list" hx-swap="outerHTML">↻ <%= t('todos.refresh') %></button>
+    </div>
+
+    <form class="mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos" hx-target="#todo-list"
+        hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()">
+        <!-- <input type="text" name="text" required data-required="<%= t('validation.required') %>" -->
+        <input type="text" name="text" data-required="<%= t('validation.required') %>"
+            oninvalid="this.setCustomValidity(this.dataset.requiredMsg)"
+            oninput="this.setCustomValidity('')" placeholder="<%= t('todos.placeholder') %>"
+            class="input sm:flex-1" />
+        <button type="submit" class="btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <%= t('todos.add') %>
+        </button>
+    </form>
+
+    <div class="rounded-xl border border-gray-100 p-2 sm:p-3">
+        <%- include('../partials/list', { todos }) %>
+    </div>
+</div>

@@ -1,0 +1,97 @@
+version: '3.8' # compose语法版本，3.8兼容绝大多数docker环境
+
+# 自定义桥接网络，容器内部可使用服务名 postgres、redis作为host访问
+networks:
+  app-network:
+    driver: bridge
+# 声明命名数据卷，docker托管存储
+volumes:
+  pg-prod-data:
+  redis-prod-data:
+
+services:
+  fullstack-app:
+    # 生产环境：不配置build，镜像由CI提前构建
+    # 平台无关写法：IMAGE_TAG 由各 CI 平台工作流注入（GitHub=${{ github.sha }}，Gitee=${{ gitee.sha }}）
+    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    ports:
+      - "${SERVER_PORT}:3000"
+    # 服务端环境变量（仅Node业务生效）
+    # ⚠️ 链条拆解：
+    #   0) 值来源：CI export（生产无 .env，deploy 经 ssh export 提供）
+    #   1) ${SERVER_PORT} 先被 compose 解析器插值（同时用于上方 ports 映射）
+    #   2) environment 再把解析后的值写进容器进程（Node 内 process.env.SERVER_PORT）
+    #   export 与 environment 不可互相替代：缺 export 插值变空，缺 environment 值进不了容器
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVER_PORT: ${SERVER_PORT}
+      TZ: ${TZ:-Asia/Shanghai}
+      DB_POOL_MAX: ${DB_POOL_MAX}
+      DB_IDLE_TIMEOUT_MS: ${DB_IDLE_TIMEOUT_MS}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS}
+    # 官方安全就绪等待：不只是启动顺序，等待服务真正健康就绪
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD","wget","--no-verbose","--tries=1","--spider","http://0.0.0.0:3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine # 使用alpine轻量镜像，体积小适合本地开发
+    container_name: prod-postgres # 固定容器名称，方便docker命令操作
+    restart: always # 之前是 restart: unless‑stopped # 容器退出自动重启；手动stop才不会重启
+    environment: # 服务级私有环境变量（仅数据库生效）
+      # 全部从项目.env读取变量，yml不硬编码任何账号密码
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    # ports:
+      # ports格式："宿主机端口:容器内部端口"
+      # 👉右侧5432：PostgreSQL镜像内部监听端口，由镜像固定，**不允许修改**
+      # 👉左侧5432：本机宿主机暴露端口，供宿主机上Node/Navicat/DBeaver访问容器数据库
+      # ⚠️重要：compose ports属于Docker网络映射配置，不会自动读取.env的DB_PORT，两套配置不会自动同步
+      # 如果修改左侧宿主机端口，必须同步修改.env中的 DB_PORT，否则业务驱动连接失败
+      # - "${DB_PORT}:5432" # 生产环境不需要端口裸露到宿主机
+    volumes:
+      - pg-prod-data:/var/lib/postgresql/data
+    networks:
+      - app-network # 加入自定义网桥，容器之间可以服务名互相访问
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -p 5432 -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine # redis7 轻量alpine镜像
+    container_name: prod-redis
+    restart: always # 之前是 restart: unless‑stopped
+    # 启动redis服务并且设置全局密码，密码取自.env环境变量
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    # ports:
+      # ports格式："宿主机端口:容器内部端口"
+      # 👉右侧6379：Redis镜像内部监听端口，镜像固化，**不可修改**
+      # 👉左侧6379：本机宿主机暴露端口，供宿主机Node、redis客户端访问
+      # ⚠️重要：compose ports不会自动读取.env的REDIS_PORT，两套配置相互独立，无自动同步
+      # 如果改动左侧宿主机端口，需要同步修改.env中 REDIS_PORT，否则ioredis驱动连接失败
+      # - "${REDIS_PORT}:6379" # 生产环境不需要端口裸露到宿主机
+    volumes:
+      - redis-prod-data:/data
+    networks:
+      - app-network
+    healthcheck:
+      # 有密码完整命令：使用 CMD‑SHELL，支持解析环境变量 REDIS_PASSWORD
+      test: ["CMD-SHELL", "redis-cli -p 6379 -a ${REDIS_PASSWORD} ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      # 无密码完整命令，不走shell，开销更小，启用时注释上面test，放开下面这行
+      # test: ["CMD", "redis-cli", "-p", "6379", "ping"]

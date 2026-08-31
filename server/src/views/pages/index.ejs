@@ -1,0 +1,61 @@
+<% const total=todos.length; const done=todos.filter((t)=> t.done).length;
+    const pending = total - done;
+    %>
+
+<section class="space-y-8">
+    <!-- Hero -->
+    <div class="space-y-3">
+        <div
+            class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600 ring-1 ring-emerald-200">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            htmx + Express + Vite + Tailwind CSS
+        </div>
+        <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <%= t('hero.title') %>
+        </h2>
+        <p class="max-w-xl text-sm leading-relaxed text-gray-500">
+            <%- t('hero.description') %>
+        </p>
+    </div>
+
+    <!-- 概览统计 -->
+    <div id="stats" class="grid grid-cols-3 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-gray-400">
+                <%= t('todos.all') %>
+            </p>
+            <p class="mt-1 text-2xl font-bold text-gray-900">
+                <%= total %>
+            </p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-gray-400">
+                <%= t('todos.done') %>
+            </p>
+            <p class="mt-1 text-2xl font-bold text-emerald-600">
+                <%= done %>
+            </p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-gray-400">
+                <%= t('todos.pending') %>
+            </p>
+            <p class="mt-1 text-2xl font-bold text-amber-500">
+                <%= pending %>
+            </p>
+        </div>
+    </div>
+
+    <!-- 快捷入口：真正的待办管理在 /list -->
+    <div class="card border border-gray-100 p-6">
+        <h3 class="text-lg font-semibold text-gray-900">
+            <%= t('home.cta_title') %>
+        </h3>
+        <p class="mt-1 text-sm text-gray-500">
+            <%= t('home.cta_body') %>
+        </p>
+        <a href="/list" class="btn-primary mt-4 inline-flex items-center gap-2">
+            <%= t('home.cta_action') %>
+        </a>
+    </div>
+</section>

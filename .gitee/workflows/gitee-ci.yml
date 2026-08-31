@@ -1,0 +1,142 @@
+name: Build -> Push -> Deploy
+
+# 手动触发（Gitee Go 与 GitHub Actions 同为 workflow_dispatch 手动触发）
+on:
+  workflow_dispatch:
+
+# ===================== 环境变量总览 =====================
+# 一、本文件 env: 段（非敏感，写死或自动生成）
+#   IMAGE_NAME        阿里云 ACR 公网镜像仓库地址（个人版；build/CI 与 ECS pull 均用，公网）
+#   IMAGE_NAME_VPC    ACR 内网（-vpc）地址——个人版不支持同账号 ECS 内网拉取（官方 2024-09-04 后），暂未启用
+#   IMAGE_TAG         镜像 tag，自动取平台 commit（gitee.sha）
+#   COMPOSE_WAIT_TIMEOUT  compose 部署健康等待超时（env 兜底 60，无需配 secrets）
+# 二、平台 Secrets 中配置的变量（CI 中经 ${{ secrets.XXX }} 引用）
+#   ＊配置入口：流水线 → Gitee Go → Secrets（与 GitHub 仅入口不同）
+#   ├─ ACR 登录（必填）    REGISTRY_USER / REGISTRY_PASSWORD
+#   ├─ 生产 SSH（必填）    DEPLOY_SSH / DEPLOY_PATH / DEPLOY_SERVER_HOST
+#   ├─ DB/Redis（必填）    DB_USER / DB_PASSWORD / DB_NAME / REDIS_PASSWORD
+#   └─ 运行期/compose插值（可选，缺省用默认值，无需配置）
+#                         SERVER_PORT(3000) / NODE_ENV(production) / TZ(Asia/Shanghai)
+#                         DB_POOL_MAX(10) / DB_IDLE_TIMEOUT_MS(30000) / DB_CONNECTION_TIMEOUT_MS(5000)
+# ===========================================================
+
+env:
+  # 阿里云 ACR 公网镜像仓库地址（个人IP 版；公网，build/CI push 与 ECS pull 均用）
+  IMAGE_NAME: "crpi-1vp5deeta128cxtu.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton"
+  # ACR 内网（-vpc）地址：个人IP 版不支持同账号 ECS 内网拉取（官方 2024-09-04 后），暂未启用
+  IMAGE_NAME_VPC: "crpi-1vp5deeta128cxtu-vpc.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton"
+  IMAGE_TAG: ${{ gitee.sha }}
+  # Compose 部署超时等待，保障服务健康就绪
+  COMPOSE_WAIT_TIMEOUT: "60"
+
+jobs:
+  # ============================================================
+  # job 1 —— 构建并推送镜像（在 CI Runner 虚拟机里）
+  #   build + push 到 ACR，不触碰生产服务器（SSH 全部留给 job2）
+  # ============================================================
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+
+      # 推镜像到阿里云 ACR（在 Runner 上完成，无需触碰生产 SSH）
+      - name: Push image to ACR
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          echo ${REGISTRY_PASSWORD} | docker login ${IMAGE_NAME%%/*} -u ${REGISTRY_USER} --password-stdin
+          docker push ${IMAGE_NAME}:${IMAGE_TAG}
+
+  # ============================================================
+  # job 2 —— 部署（全程在主机上，通过 ssh 执行）
+  # 依赖 job1.build（镜像已推送 ACR）成功
+  # 主机上：login ACR → pull 镜像 → compose up
+  # ============================================================
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # 环境变量存在性校验：缺任何必填 Secret 时立即失败并输出缺哪个
+      # 涵盖 CI/CD 基建 + docker-compose 运行期（compose 实际引用）全量变量
+      - name: Validate required secrets
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          DEPLOY_SERVER_HOST: ${{ secrets.DEPLOY_SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        run: |
+          for name in REGISTRY_USER REGISTRY_PASSWORD DEPLOY_SERVER_HOST DEPLOY_PATH DEPLOY_SSH_PRIVATE_KEY \
+                      DB_USER DB_PASSWORD DB_NAME REDIS_PASSWORD; do
+            eval "value=\${$name}"
+            if [ -z "$value" ]; then
+              echo "❌ 缺少 Gitee Secrets: $name"
+              echo "请先在仓库设置后再触发。"
+              exit 1
+            fi
+          done
+
+      # ---- SSH 准备（同 job 内后续 ssh 复用 agent）----
+      - name: Setup SSH agent
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SERVER_HOST: ${{ secrets.DEPLOY_SERVER_HOST }}
+        run: |
+          eval $(ssh-agent -s)
+          echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - >/dev/null
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan "$DEPLOY_SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # ---- 远程部署（全部在主机上执行）----
+      # 镜像已由 build 推送到 ACR，主机只拉取 + compose up
+      # 没有 .env 落盘：compose 插值变量由 Secret 注入，经远程 shell export 提供
+      # 只 export compose 真正 ${...} 插值的变量；VITE_PORT / DB_HOST / DB_PORT / REDIS_HOST/PORT 等无需导出
+      - name: Deploy on host (pull + compose up via ssh)
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          DEPLOY_SERVER_HOST: ${{ secrets.DEPLOY_SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
+          DB_IDLE_TIMEOUT_MS: ${{ secrets.DB_IDLE_TIMEOUT_MS }}
+          DB_CONNECTION_TIMEOUT_MS: ${{ secrets.DB_CONNECTION_TIMEOUT_MS }}
+          COMPOSE_WAIT_TIMEOUT: ${{ env.COMPOSE_WAIT_TIMEOUT }}
+          TZ: ${{ secrets.TZ }}
+        run: |
+          ssh -o StrictHostKeyChecking=no root@${DEPLOY_SERVER_HOST} "
+            set -e
+            cd ${DEPLOY_PATH} &&
+            # —— 主机侧 ACR 登录 + 拉取 build 已推送的镜像 ——
+            echo ${REGISTRY_PASSWORD} | docker login -u ${REGISTRY_USER} --password-stdin &&
+            docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
+            # —— 部署：compose 插值变量由 shell export 提供 ——
+            export IMAGE_NAME=${IMAGE_NAME} IMAGE_TAG=${IMAGE_TAG} \
+                   SERVER_PORT=${SERVER_PORT:-3000} NODE_ENV=${NODE_ENV:-production} \
+                   DB_USER=${DB_USER} DB_PASSWORD=${DB_PASSWORD} DB_NAME=${DB_NAME} \
+                   REDIS_PASSWORD=${REDIS_PASSWORD} \
+                   DB_POOL_MAX=${DB_POOL_MAX:-10} DB_IDLE_TIMEOUT_MS=${DB_IDLE_TIMEOUT_MS:-30000} DB_CONNECTION_TIMEOUT_MS=${DB_CONNECTION_TIMEOUT_MS:-5000} \
+                   TZ=${TZ:-Asia/Shanghai} && \
+            docker compose up -d --wait --wait-timeout ${COMPOSE_WAIT_TIMEOUT}
+          "

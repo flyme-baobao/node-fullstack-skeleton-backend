@@ -1,0 +1,5 @@
+# 流水线/CI 配置文件强制 LF（Gitee Go / GitHub Actions 的 YAML 解析对 CRLF 敏感）
+.workflow/** text eol=lf
+.github/**   text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf

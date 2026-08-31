@@ -1,0 +1,49 @@
+# .github/workflows/reverse-gitee-to-github.yml
+# 反向同步：把 Gitee 上的新提交同步回 GitHub。
+#
+# 适用场景：极端网络环境下无法访问 GitHub，只能在 Gitee 上提交，
+# 由云端 runner（海外）定时把 Gitee 侧的提交拉回 GitHub。
+#
+# 关键设计：
+#   1. 只做 fast-forward 推送（不带 force），GitHub 一旦领先即拒绝，
+#      避免与 mirror-gitee.yml 的 force_update 互相覆盖、互相丢提交。
+#   2. 推送使用 GITHUB_TOKEN：按 GitHub 防递归机制，
+#      由 GITHUB_TOKEN 生成的 push 不会再次触发 GitHub Actions，
+#      因此不会和 Sync To Gitee 形成死循环。
+#
+# 注意：需要配置 secrets：GITEE_USER、GITEE_TOKEN（Gitee 个人访问令牌）。
+
+name: Sync Gitee To GitHub
+
+on:
+  schedule:
+    # 每 15 分钟检查一次；策略可用不改
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # 也支持在 Actions 页面手动点击触发
+
+concurrency:
+  group: gitee-to-github    # 并发分组名
+  cancel-in-progress: false # 不取消已在运行的实例
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest  # 在 GitHub 托管的 Ubuntu runner 上跑
+    steps:
+      - name: Checkout GitHub 仓库（拉全量历史）
+        uses: actions/checkout@v5
+        with:
+          # 必须拉全量历史，否则快进推送会被拒绝
+          fetch-depth: 0
+
+      - name: 添加并拉取 Gitee 远端
+        run: |
+          git remote add gitee "https://${{ secrets.GITEE_USER }}:${{ secrets.GITEE_TOKEN }}@gitee.com/${{ secrets.GITEE_USER }}/${{ github.event.repository.name }}.git"
+          git fetch --prune --tags gitee
+          # 删除 gitee/HEAD 符号引用，避免 push 时被当成分支误推成 GitHub 的 HEAD 分支
+          git symbolic-ref --delete refs/remotes/gitee/HEAD 2>/dev/null || true
+
+      - name: 以快进方式把 Gitee 提交推回 GitHub
+        run: |
+          git push origin \
+            "refs/remotes/gitee/*:refs/heads/*" \
+            --tags --prune

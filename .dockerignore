@@ -1,0 +1,33 @@
+# —— .dockerignore：控制 docker build 的构建上下文 ——
+# 原理：docker build . 默认会把「当前目录」整个打成 context 发送给 Docker daemon，
+#       本文件用于提前排掉镜像构建用不到的目录/文件（同 .gitignore 逻辑）。
+# 效果：node_modules(132M)、.git 等不再上传，CI 构建上下文从 ~136M 降到几百 KB，
+#       Dockerfile 体积变小，构建更快更安全。
+# 注意：Dockerfile 里 COPY 真正需要的（server / client / scripts / 配置文件）都不在排除名单里。
+
+# —— 版本控制 / CI 平台配置：构建用不到，且可能含敏感信息 ——
+.git
+.gitignore
+.github
+.gitee
+.workflow
+
+# —— 依赖与构建产物：会被 Dockerfile 里 npm ci / npm run build 重新生成 ——
+node_modules
+dist
+dist-client
+dist-server
+data
+
+# —— 本地环境/密钥：杜绝把凭据打进镜像 ——
+.env
+.env.*
+!.env.example
+
+# —— 开发工具与文档 ——
+.idea
+.vscode
+.memories
+docs
+test
+*.log

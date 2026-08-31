@@ -1,0 +1,13 @@
+{
+    // 前后端共用的编译器选项，由 tsconfig.json 与 tsconfig.server.json 通过 extends 继承。
+    // 只放「两边一致且互不冲突」的项；前端特供项（DOM/vite/client）与后端特供项（NodeNext 等）留各自子配置。
+    "compilerOptions": {
+        "target": "ES2022",
+        "strict": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "useDefineForClassFields": true
+    }
+}

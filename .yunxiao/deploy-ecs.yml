@@ -1,0 +1,100 @@
+# =============================================================================
+# 云效 Flow 流水线：把代码构建/部署到 ECS（方案 A / B 二选一）
+# 位置：.yunxiao/deploy-ecs.yml  （与 .yunxiao/ci.yml 并存，用于 ECS 落地选型）
+#
+# 背景：云效 `sources` 拉到的代码在「云效构建机」上，不会自动到 ECS。
+#       代码要落到 ECS 有两条路，见下方 steps，运行时二选一：
+#         - 方案 A：云效 sources 拉码 → scp 整包上传 ECS（依赖 sources）
+#         - 方案 B：ECS 自己 git clone / pull（推荐，云效 sources 可有可无）
+#       本文件默认启用「方案 B」，方案 A 已写好、按需放开注释切换。
+#
+# 变量（云效「变量/凭据」里配置，不落地仓库）：
+#   ACR_REGISTRY       完整 ACR 地址，如
+#                      crpi-xxx.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton
+#   ACR_USERNAME / ACR_PASSWORD   ACR 登录账号 / 密码（ECS 上 build/push 用）
+#   ECS_HOST / ECS_USER           ECS IP(or域名) / SSH 用户名
+#   ECS_SSH_PRIVATE_KEY           ECS 登录 SSH 私钥（进变量/凭据，多行）
+#   ECS_DEPLOY_DIR                 ECS 部署目录（方案 A 解包目录、方案 B clone 目录）
+#   REPO_URL                       Gitee 仓库地址（方案 B 用）
+#   DEPLOY_VERSION                 分支名或 tag，缺省 master（方案 B 用）
+# =============================================================================
+
+sources:
+  gitee_source:
+    type: git
+    name: Gitee源码
+    endpoint: https://gitee.com/flyme-baobao/node-fullstack-skeleton
+    branch: master
+    certificate:
+      type: serviceConnection
+      serviceConnection: "jro4b9ac34r6534u"
+
+stages:
+  deploy_to_ecs:
+    name: "部署到 ECS"
+    jobs:
+      deploy_job:
+        name: "SSH ECS git pull/clone + docker compose"
+        runsOn:
+          group: public/cn-beijing
+          container: build-steps-public-registry.cn-beijing.cr.aliyuncs.com/build-steps/alinux3:latest
+        steps:
+          # ---------------------------------------------------------
+          # 方案 A：云效 sources 拉码 → scp 整包上传 ECS（依赖 sources）
+          # 选 A：启用本 step（去掉注释），并禁用下方方案 B 的 step
+          # ---------------------------------------------------------
+          # plan_a_scp_deploy:
+          #   step: Command
+          #   name: "方案A：scp 上传整包并在 ECS 构建部署"
+          #   with:
+          #     run: |
+          #       # 云效工作目录即 sources 克隆下来的工程根；node_modules/.git 用 tar 排除减小体积
+          #       mkdir -p /tmp/ssh && printf '%s' "$ECS_SSH_PRIVATE_KEY" > /tmp/ssh/id_ed25519 && chmod 600 /tmp/ssh/id_ed25519
+          #       tar --exclude='./node_modules' --exclude='./.git' -czf - . \
+          #         | ssh -i /tmp/ssh/id_ed25519 -o StrictHostKeyChecking=no "$ECS_USER@${ECS_HOST}" \
+          #             "cat > /tmp/app-src.tar.gz && cd ${ECS_DEPLOY_DIR} && tar -xzf /tmp/app-src.tar.gz && \
+          #              echo ${ACR_PASSWORD} | docker login ${ACR_REGISTRY%%/*} -u ${ACR_USERNAME} --password-stdin && \
+          #              docker compose build && docker compose up -d --wait"
+
+          # -----------------------------------------------------------
+          # 方案 B：ECS 自己 git clone / pull（推荐，最简单）
+          # 两个方案二选一；选 B 时启用本 step，禁用方案 A
+          # -----------------------------------------------------------
+          plan_b_git_deploy:
+            step: Command
+            name: "方案B：ECS 内 git pull/clone + docker compose"
+            with:
+              run: |
+                # 本地（云效机）取私钥、SSH 到 ECS，把脚本通过 stdin 交给远端 bash -s
+                mkdir -p /tmp/ssh && printf '%s' "$ECS_SSH_PRIVATE_KEY" > /tmp/ssh/id && chmod 600 /tmp/ssh/id
+                ssh -i /tmp/ssh/id -o StrictHostKeyChecking=no "$ECS_USER@${ECS_HOST}" 'bash -s' <<'EOF'
+                set -e
+                # DEPLOY_VERSION 可传分支名或 tag，缺省 master
+                VERSION="${DEPLOY_VERSION:-master}"
+
+                if [ -d "${ECS_DEPLOY_DIR}/.git" ]; then
+                  # 已存在 → fetch 并切到指定版本
+                  cd ${ECS_DEPLOY_DIR}
+                  git fetch --all --prune --tags
+                  git checkout ${VERSION}
+                  # 若是分支（非 tag）再 pull 一次拉到该分支最新；tag 没有 pull 意义
+                  if [ "$(git rev-parse --verify -q refs/remotes/origin/${VERSION} || true)" ]; then
+                    git pull --no-rebase origin "${VERSION}"
+                  fi
+                else
+                  # 全新 clone 已自带默认分支的 checkout，切到指定版本后再拉最新
+                  mkdir -p ${ECS_DEPLOY_DIR}
+                  git clone ${REPO_URL} ${ECS_DEPLOY_DIR} && cd ${ECS_DEPLOY_DIR}
+                  git checkout ${VERSION} 2>/dev/null || git checkout -b ${VERSION} origin/${VERSION}
+                  if [ "$(git rev-parse --verify -q refs/remotes/origin/${VERSION} || true)" ]; then
+                    git pull --no-rebase origin "${VERSION}"
+                  fi
+                fi
+
+                # —— 在 ECS 上构建 + 推送 ACR + 部署 ——
+                LONG_HASH=$(git rev-parse HEAD)
+                echo "deploy commit=${LONG_HASH} version=${VERSION}"
+                echo ${ACR_PASSWORD} | docker login ${ACR_REGISTRY%%/*} -u ${ACR_USERNAME} --password-stdin
+                docker compose build
+                docker compose up -d --wait
+                EOF

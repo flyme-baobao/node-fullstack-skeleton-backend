@@ -1,0 +1,103 @@
+# =============================================================================
+# 云效 Flow 流水线：构建镜像 → 推送阿里云 ACR
+# 位置：.yunxiao/ci.yml
+#
+# 需在云效「变量/凭据」里配置（不落地仓库）：
+#   ACR_REGISTRY       完整 ACR 地址，如
+#                      crpi-xxx.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton
+#   ACR_USERNAME / ACR_PASSWORD   ACR 登录账号 / 密码（手写 docker push 或 ECS 构建用）
+#
+# 服务连接：
+#   yk3n44swtbuexwyy  —— ACR 推送（DockerBuildPushACR.serviceConnection）
+#   jro4b9ac34r6534u  —— Gitee 源码（通用 Git 连接）
+#
+# 内置变量：
+#   ${CI_COMMIT_ID}   —— 本次拉取提交的短 hash（作 dockerTag，已验证可用）
+# =============================================================================
+
+sources:
+  gitee_source:
+    type: git
+    name: Gitee源码
+    endpoint: https://gitee.com/flyme-baobao/node-fullstack-skeleton
+    branch: master
+    certificate:
+      type: serviceConnection
+      serviceConnection: "jro4b9ac34r6534u"
+stages:
+  acr_docker_build_stage:
+    name: "构建镜像"
+    jobs:
+      acr_docker_build_job:
+        name: "镜像构建并推送至ACR个人版"
+        runsOn:
+          group: public/cn-beijing
+          container: build-steps-public-registry.cn-beijing.cr.aliyuncs.com/build-steps/alinux3:latest
+        steps:
+          # 获取当前提交的短哈希，作为镜像 tag (可运行但是 acr_docker_build_step 收不到)
+          # get_commit_hash:
+          #   step: Command
+          #   name: "获取Commit短哈希"
+          #   with:
+          #     run: |
+          #       echo "$(git rev-parse --short HEAD)"
+          #       echo "::set-output name=commit_short_hash::$(git rev-parse --short HEAD)"
+
+          acr_docker_build_step:
+            step: DockerBuildPushACR
+            name: "镜像构建并推送至ACR个人版"
+            with:
+              serviceConnection: yk3n44swtbuexwyy
+              artifact: my_image
+              region: cn-beijing
+              dockerRegistry: ${ACR_REGISTRY}
+              # 无法跨 step 传递变量，get_commit_hash 的输出无法在 acr_docker_build_step 里引用
+              # 只能直接用 CI_COMMIT_ID (8位 短hash) 作为 tag, 
+              # 如果完整hash的话得自己使用下面的 build_and_push_image 
+              # 不过 container 得配置 支持 docker daemon 环境的 (比如 docker:dind 但是 public/cn-beijing 不支持 ) docker buildx build
+              # dockerTag: $[stages.acr_docker_build_stage.acr_docker_build_job.get_commit_hash.outputs.commit_short_hash]
+              dockerTag: ${CI_COMMIT_ID}
+              dockerfilePath: Dockerfile
+              cacheType: remote
+
+          # build_and_push_image:
+          #   step: Command
+          #   name: "镜像构建并推送至ACR个人版"
+          #   with:
+          #     run: |
+          #       LONG_HASH=$(git rev-parse HEAD)
+          #       echo "当前提交的完整hash: ${LONG_HASH}"
+          #       REGISTRY=${ACR_REGISTRY}
+
+          #       # 登录 ACR
+          #       echo ${ACR_PASSWORD} | docker login ${REGISTRY%%/*} -u ${ACR_USERNAME} --password-stdin
+
+          #       # buildx 方式：有远程缓存加速，构建完自动 push
+          #       docker buildx build \
+          #         -f Dockerfile \
+          #         -t ${REGISTRY}:${LONG_HASH} \
+          #         --cache-from type=registry,ref=${REGISTRY}:buildcache \
+          #         --cache-to type=registry,ref=${REGISTRY}:buildcache,mode=max \
+          #         --push \
+          #         .
+    
+  # kubectl_apply_stage:
+  #   name: "部署"
+  #   jobs:
+  #     kubectl_apply_job:
+  #       name: "Kubernetes发布"
+  #       runsOn:
+  #         group: public/cn-beijing
+  #         container: build-steps-public-registry.cn-beijing.cr.aliyuncs.com/build-steps/alinux3:latest
+  #       steps:
+  #         kubectl_apply:
+  #           step: KubectlApply
+  #           name: "Kubectl 发布"
+  #           with:
+  #             kubernetesCluster: <your-kubernetes-id>
+  #             kubectlVersion: "1.27.9"
+  #             namespace: default
+  #             yamlPath: app-configs/manifest-app
+  #             variables:
+  #               - key: image
+  #                 value: $[stages.acr_docker_build_stage.acr_docker_build_job.acr_docker_build_step.artifacts.my_image]

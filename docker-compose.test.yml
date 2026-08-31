@@ -1,0 +1,24 @@
+# docker-compose.test.yml —— 用「已推好的 ACR 镜像」跑生产栈的「测试 override」
+#
+# ⚠️ 它不独立使用，必须配合 base（docker-compose.yml）共同加载：
+#     docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# 与 docker-compose.local.yml 的区别：
+#   · local.yml  → 用本地 Dockerfile 构建镜像（build）
+#   · test.yml   → 拉已 push 的镜像跑（不改代码，纯验证镜像可用性）
+#
+# 用法：
+#   1. 在 .env 里配置 TEST_IMAGE_NAME（完整镜像名，含 tag），例如：
+#        TEST_IMAGE_NAME=crpi-1vp5deeta128cxtu.cn-beijing.personal.cr.aliyuncs.com/my-app-flyme/node-fullstack-skeleton:9aa675be
+#   2. docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# Compose 多文件合并规则：后面的文件按 key 覆盖前面的，其余共享。
+# base 已提供 networks/volumes/postgres/redis 及 fullstack-app 的
+# ports / environment / depends_on / healthcheck 等全部公共配置；
+# 本文件只覆盖 fullstack-app 的「镜像来源」：换成 ACR 预构建镜像。
+
+services:
+  fullstack-app:
+    # 唯一差异：用 ACR 预构建镜像。TEST_IMAGE_NAME 只在本测试 override 使用，
+    # 不设默认值 → 漏配 .env 时 compose 插值会报错提醒，避免静默用错镜像。
+    image: ${TEST_IMAGE_NAME}

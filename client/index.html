@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Node Fullstack SPA </title>
+
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+
+</head>
+
+<body class="flex h-screen flex-col overflow-hidden bg-gray-50 text-gray-900">
+    <!-- 极简根容器：整站主体(header+main+footer)都在 index.ejs；语言切换无感刷新时整块替换 -->
+    <div id="root" hx-swap="innerHTML transition:true" class="flex min-h-0 flex-1 flex-col bg-gray-50 text-gray-900">
+    </div>
+    
+    <!-- 骨架模板（toast / confirm）：已移到 client/src/templates/，不再内联在此，
+        由 src/templates.ts 用 Vite import.meta.glob 打包并在启动时注册成 <template> 挂到 body。 -->
+
+    <!-- 全局 Toast 槽位：fixed 定位钉住视口右上角，滚动不影响可见性。
+        showToast 克隆由 templates.ts 注册的 #toast-template 并注入到此槽位。 -->
+    <div id="toast-slot" aria-live="polite"
+        class="pointer-events-none fixed top-4 right-4 z-[60] flex flex-col items-end gap-2">
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+    <!-- 纯 SPA（静态 shell，无服务端 EJS）：语言包不再由本文件注入。
+         首屏由 main.ts 调 GET /api/i18n 拉取当前语言包 → window.I18n；
+         切换语言由 language.ts 调 POST /api/change-language 更新 window.I18n。 -->
+</body>
+
+</html>
