@@ -12,6 +12,7 @@
 #      因此不会和 Sync To Gitee 形成死循环。
 #
 # 注意：需要配置 secrets：GITEE_NAMESPACE、GITEE_TOKEN（Gitee 个人访问令牌）。
+# 需要开启 Read and write permissions  不然同步会失败，（路径 `Settings` → `Actions` → `General`）
 
 name: Sync Gitee To GitHub
 
