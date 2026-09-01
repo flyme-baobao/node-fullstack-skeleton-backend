@@ -6,8 +6,8 @@ networks:
     driver: bridge
 # 声明命名数据卷，docker托管存储
 volumes:
-  pg-prod-data:
-  redis-prod-data:
+  pg-dev-data:
+  redis-dev-data:
 
 services:
   postgres:
@@ -27,7 +27,7 @@ services:
       # 如果修改左侧宿主机端口，必须同步修改.env中的 DB_PORT，否则业务驱动连接失败
       - "127.0.0.1:${DB_PORT}:5432"
     volumes:
-      - pg-prod-data:/var/lib/postgresql/data
+      - pg-dev-data:/var/lib/postgresql/data
     networks:
       - app-network # 加入自定义网桥，容器之间可以服务名互相访问
     healthcheck:
@@ -50,7 +50,7 @@ services:
       # 如果改动左侧宿主机端口，需要同步修改.env中 REDIS_PORT，否则ioredis驱动连接失败
       - "127.0.0.1:${REDIS_PORT}:6379"
     volumes:
-      - redis-prod-data:/data
+      - redis-dev-data:/data
     networks:
       - app-network
     healthcheck:
