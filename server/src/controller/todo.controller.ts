@@ -25,8 +25,8 @@ export async function listFragment(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库查询
-    
-    ctx.render('partials/list', { todos: todoService.listTodos() });
+
+    ctx.render('partials/list', { todos: await todoService.listTodos() });
 }
 
 /**
@@ -53,19 +53,19 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
         throw new HttpError({ status: 400, code: 40001 }); // 40001 todo_empty
     }
 
-    const newItem = todoService.createTodo({ text });
+    const newItem = await todoService.createTodo({ text });
 
     await sleep(DB_LATENCY_MS); // 模拟数据库写入
-    
+
     if (!newItem) {
         // 入参已清洗且非空，此处仍失败 = 服务端故障（持久化/底层异常）→ 500
         throw new HttpError({ status: 500, code: 50001 }); // 50001 create_failed
     }
 
     // 空 → 第一条：原来是空列表占位，必须整体替换才能去掉“暂无待办”
-    if (todoService.countTodos() === 1) {
+    if (await todoService.countTodos() === 1) {
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="afterbegin"
-        ctx.render('partials/list', { todos: todoService.listTodos() });
+        ctx.render('partials/list', { todos: await todoService.listTodos() });
         return;
     }
 
@@ -79,7 +79,7 @@ export async function toggleTodo(req: Request, res: Response): Promise<void> {
     // 数据清洗：非法 id（非数字）直接抛 400，不查库
     const id = parseValidId(ctx);
 
-    const item = todoService.toggleTodo(id);
+    const item = await todoService.toggleTodo(id);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库读写
 
@@ -96,7 +96,7 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     const id = parseValidId(ctx);
    
     // 校验 id 合法后删除；service 已把 status/code 拼进结果，controller 直接透传给 HttpError
-    const result = todoService.removeTodo(id);
+    const result = await todoService.removeTodo(id);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库删除
 
@@ -105,11 +105,11 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
         throw new HttpError({ status: result.status ?? _defaultStatus, code: result.code ?? _defaultStatus });
     }
 
-    if (todoService.countTodos() === 0) {
+    if (await todoService.countTodos() === 0) {
         // 删光最后一条：留 `#todo-list` 的空白占位回来
         ctx.set('HX-Retarget', '#todo-list'); // 覆盖 closest .todo-item
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="delete"
-        ctx.render('partials/list', { todos: todoService.listTodos() });
+        ctx.render('partials/list', { todos: await todoService.listTodos() });
         return;
     }
     ctx.status(200).end();

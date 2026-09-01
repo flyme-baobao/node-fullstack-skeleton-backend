@@ -22,27 +22,27 @@ function toView(item: TodoItem): TodoView {
 }
 
 /** 查询当前待办列表（治理后的视图对象） */
-export function listTodos(): TodoView[] {
-    return todoRepository.list().map(toView);
+export async function listTodos(): Promise<TodoView[]> {
+    return (await todoRepository.list()).map(toView);
 }
 
 /** 统计待办数量（controller 判断空 / 删光等特殊重绘分支用） */
-export function countTodos(): number {
-    return todoRepository.list().length;
+export async function countTodos(): Promise<number> {
+    return (await todoRepository.list()).length;
 }
 
 /** 新增待办：直接落库（文本已由 controller 完成清洗），返回被治理后的视图对象；失败返回 null */
-export function createTodo(dto: CreateTodoDto): TodoView | null {
+export async function createTodo(dto: CreateTodoDto): Promise<TodoView | null> {
     // repository.create 当前同步必成功（返回 TodoItem，非可空）。
     // 防御其未来改为异步/失败时返回空 —— 与 toggle 一致，异常态退化成 null，
     // 由 controller 统一决定状态码（这里是服务端故障语义 → 500），不在 service 抛错。
-    const item = todoRepository.create(dto.text);
+    const item = await todoRepository.create(dto.text);
     return item ? toView(item) : null;
 }
 
 /** 切换完成状态：返回被治理后的视图对象（不存在返回 undefined） */
-export function toggleTodo(id: number): TodoView | undefined {
-    const item = todoRepository.toggle(id);
+export async function toggleTodo(id: number): Promise<TodoView | undefined> {
+    const item = await todoRepository.toggle(id);
     return item ? toView(item) : undefined;
 }
 
@@ -58,9 +58,9 @@ export type RemoveResult = {
 };
 
 /** 删除待办：返回成功与否及失败信息（区分「不存在」与「移除失败」） */
-export function removeTodo(id: number): RemoveResult {
+export async function removeTodo(id: number): Promise<RemoveResult> {
     try {
-        const removed = todoRepository.remove(id);
+        const removed = await todoRepository.remove(id);
         if (!removed) {
             return {
                 success: false,

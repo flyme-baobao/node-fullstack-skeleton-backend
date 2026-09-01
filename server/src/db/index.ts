@@ -21,7 +21,14 @@ type GlobalWithPrisma = typeof globalThis & {
 
 const globalForPrisma = globalThis as GlobalWithPrisma;
 
-export const prisma = globalForPrisma.__prisma ?? new PrismaClient();
+export const prisma = globalForPrisma.__prisma ?? new PrismaClient({
+    log: [
+        { level: 'query', emit: 'stdout' }, // ✅打印生成的SQL
+        { level: 'info', emit: 'stdout' },
+        { level: 'warn', emit: 'stdout' },
+        { level: 'error', emit: 'stdout' },
+    ]
+});
 
 if (process.env.NODE_ENV !== 'production') {
     globalForPrisma.__prisma = prisma;
