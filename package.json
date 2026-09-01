@@ -1,12 +1,12 @@
 {
-    "name": "node-fullstack-skeleton-backend",
+    "name": "node-fullstack-skeleton",
     "version": "1.0.0",
     "description": "Node 全栈骨架模板（Demo）：Express SSR + htmx 交互 + Vite/Tailwind 构建",
     "type": "module",
     "main": "server/src/index.ts",
     "scripts": {
         "dev": "concurrently -k --names server,client --prefix-colors blue,green \"npm:dev:server\" \"npm:dev:client\"",
-        "dev:server": "cross-env NODE_ENV=development node --watch-path=server --watch-preserve-output --import tsx server/src/index.ts",
+        "dev:server": "cross-env NODE_ENV=development node --watch-path=server/src --watch-preserve-output --import tsx server/src/index.ts",
         "dev:client": "cross-env NODE_ENV=development node scripts/dev-client.js",
         "build:client": "node scripts/build-client.js",
         "build:client:dev": "node scripts/build-client.js --mode development",

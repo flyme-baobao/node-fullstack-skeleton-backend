@@ -20,7 +20,22 @@ type AsyncHandler = (
 export function asyncHandler(
     fn: AsyncHandler
 ): (req: Request, res: Response, next: NextFunction) => void {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
+    return (req, res, next: NextFunction) => {
+        try {
+            Promise.resolve(fn(req, res, next)).catch((err) => {
+                if (res.headersSent) {
+                    console.error('[asyncHandler] headers已经发出，无法转发错误', err);
+                    return;
+                }
+                next(err);
+            });
+        } catch (syncErr) {
+            // 兜底捕获同步函数直接throw的异常
+            if (res.headersSent) {
+                console.error('[asyncHandler] sync throw headersSent', syncErr);
+                return;
+            }
+            next(syncErr);
+        }
     };
 }

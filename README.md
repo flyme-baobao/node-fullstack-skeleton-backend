@@ -1,4 +1,7 @@
-# node‑fullstack-skeleton
+# node-fullstack-skeleton-backend
+
+> Base 仓库地址：<https://gitee.com/flyme-baobao/node-fullstack-skeleton>
+> 仓库地址：<https://gitee.com/flyme-baobao/node-fullstack-skeleton-backend>
 
 前后端分离小型项目：前端持有静态壳（`client/index.html`）与 **SPA 路由**，**htmx** 做局部交互；后端 **Express** 只提供 `/page/*`（页面片段）与 `/api/*` 接口；**Vite + Tailwind CSS** 负责前端构建与 HMR（开发双端口，生产由 Express 托管 `dist-client`）。
 
@@ -190,7 +193,7 @@ npm run build:all        # 前后端一起构建（build:server && build:client�
 npm test                 # 运行测试
 ```
 
-> `npm run dev` 由 `concurrently -k` 并发拉起两个进程；其中 `dev:client` 用 `scripts/dev-client.js`（而非 shell 变量，兼顾 Windows）加载 `.env` 并轮询等待后端端口就绪，因此**严格先起 server 再起 client**。开发时浏览器访问 **http://localhost:${VITE_PORT}**；Express 由 `node --watch-path=server` 在文件变更时自行重启，Vite 由自己的 dev server 做前端热更。
+> `npm run dev` 由 `concurrently -k` 并发拉起两个进程；其中 `dev:client` 用 `scripts/dev-client.js`（而非 shell 变量，兼顾 Windows）加载 `.env` 并轮询等待后端端口就绪，因此**严格先起 server 再起 client**。开发时浏览器访问 **http://localhost:${VITE_PORT}**；Express 由 `node --watch-path=server/src` 在后端源码变更时自行重启，Vite 由自己的 dev server 做前端热更。
 ### Docker 构建时动态注入 mode
 
 镜像里若要走调试构建（带 sourcemap），通过 `Dockerfile` 的 `ARG MODE` 在 build 时注入（默认 `production`）：
@@ -214,7 +217,7 @@ npm test                 # 运行测试
 
 开发模式是**两个独立进程**：Express 只做后端，Vite dev server 由 `concurrently` 拉起。这里描述的退场/入场只针对 Express 进程。
 
-服务端文件变更时，Express 由 `node --watch-path=server` 重启，旧进程退场、新进程入场之间存在一个短暂交接窗口：
+服务端源码变更时，Express 由 `node --watch-path=server/src` 重启，旧进程退场、新进程入场之间存在一个短暂交接窗口：
 
 1. **退场**：旧进程收到 `SIGTERM`（watch 重启）或 `SIGINT`（用户 `Ctrl+C`）后，尽快关闭 HTTP server 与现有 socket。
 2. **入场**：新进程启动时，若旧进程还没完全释放端口，新的 `server.listen(port)` 可能先遇到 `EADDRINUSE`，此时需要短暂重试。
@@ -231,10 +234,10 @@ npm test                 # 运行测试
 可以把它理解为：
 
 - `createGracefulShutdown` 负责让旧进程**尽快放手**
-- `node --watch-path=server ...` 负责把新进程**重新拉起来**
+- `node --watch-path=server/src ...` 负责把新进程**重新拉起来**
 - `listenWithRetry` 负责让新进程在旧进程还没完全放手时**先别崩**
 
-注意：`listenWithRetry` 重试的是当前新进程里的 `server.listen(port)`，不是进程重启本身。真正结束旧进程并拉起新进程的，是 `node --watch-path=server ...` 这条启动链路。
+注意：`listenWithRetry` 重试的是当前新进程里的 `server.listen(port)`，不是进程重启本身。真正结束旧进程并拉起新进程的，是 `node --watch-path=server/src ...` 这条启动链路。
 
 其中 `SIGINT` 只代表“用户手动结束当前进程”，通常不会自动拉起新进程，所以一般不会进入 `listenWithRetry` 的重试链路；`SIGTERM` 则更常见于 watch 重启，后续才会有新进程入场。
 

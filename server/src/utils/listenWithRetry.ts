@@ -22,7 +22,7 @@ type ListenRetryOptions = {
  * 此时稍等再试，让新进程不要因为旧进程晚几百毫秒释放端口而直接崩掉。
  *
  * 注意：这里重试的是当前进程里的 server.listen(port)，不是重启进程本身。
- * 真正结束旧进程并拉起新进程的是 node --watch-path=server ... 这条启动链路。
+ * 真正结束旧进程并拉起新进程的是 node --watch-path=server/src ... 这条启动链路。
  *
  * 注意：SIGINT 是用户手动结束当前进程，只走退场，不会自动拉起新进程，
  * 所以通常不会进入这里的重试分支。

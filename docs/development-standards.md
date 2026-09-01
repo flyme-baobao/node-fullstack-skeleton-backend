@@ -194,7 +194,7 @@ app.use(renderPageMiddleware);            // ④ 后挂 res.renderPage
 
 旧进程收到以下信号之一时，先走退场：
 
-- `SIGTERM`：通常来自 `node --watch-path=server ...` 的重启流程
+- `SIGTERM`：通常来自 `node --watch-path=server/src ...` 的重启流程
 - `SIGINT`：通常来自用户在终端按 `Ctrl+C`
 
 退场逻辑位于 `server/src/utils/gracefulShutdown.ts` 的 `createGracefulShutdown`：
@@ -219,7 +219,7 @@ app.use(renderPageMiddleware);            // ④ 后挂 res.renderPage
 
 **边界：** 这段逻辑只负责新进程入场兜底，不负责关闭旧进程资源，也不负责重启进程；它重试的是当前进程里的 `server.listen(port)`。
 
-真正结束旧进程并拉起新进程的是 `node --watch-path=server ...` 这条启动链路；`listenWithRetry` 只是新进程起来后，若端口仍短暂被占用时的监听重试兜底。
+真正结束旧进程并拉起新进程的是 `node --watch-path=server/src ...` 这条启动链路；`listenWithRetry` 只是新进程起来后，若端口仍短暂被占用时的监听重试兜底。
 
 ### 8.3 为什么 `SIGINT` 通常不会进入重试链路
 
@@ -237,7 +237,7 @@ app.use(renderPageMiddleware);            // ④ 后挂 res.renderPage
 一句话记法：
 
 - `createGracefulShutdown` 负责让旧进程**尽快放手**
-- `node --watch-path=server ...` 负责把新进程**重新拉起来**
+- `node --watch-path=server/src ...` 负责把新进程**重新拉起来**
 - `listenWithRetry` 负责让新进程在旧进程还没完全放手时**先别崩**
 
 ---
