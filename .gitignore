@@ -11,7 +11,7 @@ dist-client/
 dist-server/
 
 # 本地持久化数据（不需要入库）
-data/
+server/data/
 
 # 日志
 *.log

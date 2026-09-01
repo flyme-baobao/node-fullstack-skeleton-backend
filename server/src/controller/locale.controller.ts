@@ -4,6 +4,7 @@ import { SUPPORTED_LANGUAGES, loadI18n } from '../i18n/locales.js';
 import { metaForPath, toClientPath } from '../views.js';
 import { listTodos } from '../service/todo.service.js';
 import { HttpError } from '../middleware/error.middleware.js';
+import { sleep } from '../utils/sleep.js';
 
 /**
  * 语言会话控制器（controller）：
@@ -42,6 +43,9 @@ export async function renderBody(req: Request, res: Response): Promise<void> {
     const lang = ctx.locals.currentLocale || 'zh-CN';
     const i18nJson = await loadI18n(lang);
     const meta = metaForPath(ctx.query.path);
+
+    await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
+
     await ctx.renderPage(meta.view, {
         title: meta.title,
         todos: listTodos(),

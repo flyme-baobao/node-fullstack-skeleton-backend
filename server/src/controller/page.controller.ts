@@ -4,6 +4,7 @@ import type { PageMeta } from '../views.js';
 import { toClientPath } from '../views.js';
 import { loadI18n } from '../i18n/locales.js';
 import { listTodos } from '../service/todo.service.js';
+import { sleep } from '../utils/sleep.js';
 
 /**
  * 整页渲染控制器（controller）：
@@ -19,6 +20,9 @@ export function createPageHandler(path: string, meta: PageMeta) {
         const ctx = createWebCtx(req, res);
         const lang = ctx.locals.currentLocale || 'zh-CN';
         const i18nJson = await loadI18n(lang);
+
+        await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
+
         await ctx.renderPage(meta.view, {
             title: meta.title,
             todos: listTodos(),
