@@ -2,6 +2,9 @@
     "app": {
         "title": "To-do List"
     },
+    "common": {
+        "loading": "Loading…"
+    },
     "nav": {
         "home": "Home",
         "list": "Todo list",

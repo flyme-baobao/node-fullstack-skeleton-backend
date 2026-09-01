@@ -2,6 +2,7 @@ import { showToast, ToastVariant } from '../components/toast';
 import { t } from './i18n';
 import { PAGE_PREFIX, API_PREFIX } from '../constants/api';
 import { ROOT_SELECTOR } from '../constants/dom';
+import { hideGlobalLoading, showGlobalLoading } from '../components/loading';
 
 /**
  * 自定义语言切换下拉菜单（归属 i18n 内聚目录）。
@@ -116,6 +117,7 @@ export async function initLanguagePack(): Promise<void> {
 }
 
 async function switchLanguage(lang: string): Promise<void> {
+    showGlobalLoading();
     const htmx = window.htmx;
     // 1. POST 设 cookie，并拿回 { i18nJson, isSuccess }
     try {
@@ -133,6 +135,7 @@ async function switchLanguage(lang: string): Promise<void> {
     } catch (e) {
         console.error('切换语言失败', e);
         showToast(t('toast.change_language_failed'), ToastVariant.Error);
+        hideGlobalLoading();
         return;               // 不继续 GET，避免 旧语言误换
     }
 

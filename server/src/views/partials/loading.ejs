@@ -1,0 +1,9 @@
+<%# 
+    区域 loading 遮罩：放在 .loading-region 容器内，htmx 给容器加/摘 .htmx-request，
+    client/src/components/loading.scss 据此显隐本节点（纯 CSS，无 JS）。见 docs/loading.md。
+    可选局部 size：spinner 尺寸工具类，默认 h-6 w-6；
+    用法：include('../partials/loading', { size: 'h-6 w-6' }) 
+%>
+<div class="loading-overlay" aria-hidden="true">
+    <span class="loading-spinner <%= locals.size || 'h-6 w-6' %>"></span>
+</div>

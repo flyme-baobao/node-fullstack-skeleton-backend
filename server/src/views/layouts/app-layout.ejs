@@ -1,6 +1,8 @@
-<%# app-layout：整站应用外壳（header + 内容出口 #outlet + footer）。
-   由 res.renderPage(...) 注入 outletContent；showHeader=false 时隐藏 header（登录/注册页用）。
-   采用内联表达式默认 true，避免在模板作用域声明变量造成 TDZ 报错。 %>
+<%# 
+    app-layout：整站应用外壳（header + 内容出口 #outlet + footer）。
+    由 res.renderPage(...) 注入 outletContent；showHeader=false 时隐藏 header（登录/注册页用）。
+    采用内联表达式默认 true，避免在模板作用域声明变量造成 TDZ 报错。
+%>
 <% if (typeof showHeader !== 'undefined' ? showHeader : true) { %>
     <header class="shrink-0 border-b border-gray-200/80 bg-white/80 backdrop-blur">
         <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">

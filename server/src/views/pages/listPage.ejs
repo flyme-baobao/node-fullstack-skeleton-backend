@@ -1,9 +1,12 @@
-<!--
+<%#
     待办清单页 /list 的内容（经 renderPage 注入 app-layout 的 #outlet）。
     这里把「标题 + 刷新 + 表单 + 列表」作为一个整体（todos 卡片）复用:
     form 的 hx-target="#todo-list" 与 hx-swap="afterbegin" 强耦合下面的#todo,
     拆开会破坏「新增后回填列表」的交互，因此整个卡片一起搬进 /list。
--->
+    区域 loading：刷新按钮 hx-indicator 指向 #todo-list-region，请求期间 htmx 给它加
+    .htmx-request → loading.scss 显示容器内 .loading-overlay 遮罩（CSS 驱动，无 JS）。
+    遮罩节点统一抽在 partials/loading.ejs（可选 size 定 spinner 尺寸），两处 include 复用。
+%>
 <div class="card border border-gray-100 p-6">
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -15,11 +18,13 @@
             </p>
             <p class="text-xs text-gray-400"><%- t('todos.count', { count: todos.length }) %></p>
         </div>
-        <!-- htmx 手动刷新列表 -->
-        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list" hx-swap="outerHTML">↻ <%= t('todos.refresh') %></button>
+        <!-- htmx 手动刷新列表：hx-indicator 指向下方列表区域（请求期间显示区域遮罩）；
+             hx-disabled-elt 请求期间禁用按钮，防连点重复发包 -->
+        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list" hx-swap="outerHTML"
+            hx-indicator="#todo-list-region" hx-disabled-elt="this">↻ <%= t('todos.refresh') %></button>
     </div>
 
-    <form class="mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos" hx-target="#todo-list"
+    <form class="loading-region mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos" hx-target="#todo-list"
         hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()">
         <!-- <input type="text" name="text" required data-required="<%= t('validation.required') %>" -->
         <input type="text" name="text" data-required="<%= t('validation.required') %>"
@@ -33,9 +38,13 @@
             </svg>
             <%= t('todos.add') %>
         </button>
+        <%- include('../partials/loading') %>
     </form>
 
-    <div class="rounded-xl border border-gray-100 p-2 sm:p-3">
+    <!-- 区域 loading 容器：注意它不是 swap 目标（按钮/form 仍指向内部 #todo-list），
+         outerHTML 替换 ul 不会带走遮罩；请求结束后 htmx 摘掉 .htmx-request，遮罩自动隐藏 -->
+    <div class="loading-region rounded-xl border border-gray-100 p-2 sm:p-3" id="todo-list-region">
         <%- include('../partials/list', { todos }) %>
+        <%- include('../partials/loading') %>
     </div>
 </div>

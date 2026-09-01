@@ -1,6 +1,4 @@
-# node-fullstack-skeleton-backend
-
-> 仓库地址：<https://gitee.com/flyme-baobao/node-fullstack-skeleton-backend>
+# node‑fullstack-skeleton
 
 前后端分离小型项目：前端持有静态壳（`client/index.html`）与 **SPA 路由**，**htmx** 做局部交互；后端 **Express** 只提供 `/page/*`（页面片段）与 `/api/*` 接口；**Vite + Tailwind CSS** 负责前端构建与 HMR（开发双端口，生产由 Express 托管 `dist-client`）。
 
@@ -91,7 +89,9 @@ project-root/                           # 当前仓库根目录（占位名，�
 │     ├─ index.d.ts                 # 全局类型声明（window.I18n / window.htmx / StringMap）
 │     ├─ components/                # UI 组件（同步函数 + 异步模板加载）
 │     │  ├─ confirm.ts             #   确认弹窗 + htmx:confirm 拦截（openConfirm / handleConfirm）
-│     │  └─ toast.ts               #   全局 Toast 提示（showToast）
+│     │  ├─ toast.ts               #   全局 Toast 提示（showToast）
+│     │  ├─ loading.ts             #   请求 Loading（预载模板 + 全局视口遮罩 show/hide）
+│     │  └─ loading.scss           #   Loading 样式（.loading-spinner / .loading-region / .loading-overlay）
 │     ├─ constants/                 # 常量
 │     │  └─ api.ts                 #   PAGE_PREFIX('/page') / API_PREFIX('/api')
 │     ├─ htmx/                      # htmx 装配与生命周期

@@ -2,6 +2,7 @@ import { PAGE_PREFIX } from '../constants/api';
 import { ROOT_SELECTOR } from '../constants/dom';
 import { isValidPath } from './routes';
 import { showToast, ToastVariant } from '../components/toast';
+import { hideGlobalLoading } from '../components/loading';
 
 /**
  * 轻量 SPA 路由：把 `#root` 内容换成 `${PAGE_PREFIX}/path` fragment。
@@ -47,6 +48,9 @@ export function setupSpaRouter(htmx: HTMX): void {
             // 主动 abort / 过期导航属正常取消，静默；真网络失败才打日志 + toast
             if (navId !== navSeq) return;
             console.error('[router] 页面加载失败', `${PAGE_PREFIX}${path}`, err);
+            // 兜底：纯网络断连时 htmx:afterRequest 的 detail.target 为空，
+            // 全局遮罩的常规关闭点（mountHtmxLifecycle）够不着，这里收尾（幂等）
+            hideGlobalLoading();
             void showToast('页面加载失败，请稍后重试', ToastVariant.Error);
         }
     }

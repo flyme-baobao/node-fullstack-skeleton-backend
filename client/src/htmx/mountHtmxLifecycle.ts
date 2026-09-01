@@ -1,5 +1,6 @@
 import { handleConfirm } from '../components/confirm';
 import { showToast, ToastVariant } from '../components/toast';
+import { hideGlobalLoading } from '../components/loading';
 import { t } from '../i18n/i18n';
 import { initLanguageSwitcher } from '../i18n/language';
 import { logger } from '../utils/logger';
@@ -225,10 +226,16 @@ export function mountHtmxLifecycle(): void {
 
     /** afterRequest 阶段：无论成功 / 失败 / 204 / 网络错误，必触发。统一收尾：关闭 loading、解锁交互。 */
     document.body.addEventListener('htmx:afterRequest', (event: Event) => {
-        const detail = (event as CustomEvent).detail as { elt: HTMLElement };
-        // 移除 beforeRequest 加的交互锁定态
-        // detail.elt.removeAttribute('disabled');
-        // detail.elt.classList.remove('opacity-60');
-        void detail;
+        const detail = (event as CustomEvent).detail as {
+            elt: HTMLElement;
+            target?: HTMLElement;
+        };
+        // 整页级请求（target=#root，SPA 首屏 / 导航）完结即关闭 bootstrap 期的全局视口遮罩：
+        // 覆盖成功 swap、204/304、4xx/5xx（不 swap）等全部有响应的链路；纯网络断连时
+        // detail.target 为空，由 spaRouter catch 兜底。幂等，未显示遮罩时为无操作。
+        if (detail.target?.id === ROOT_ID) {
+            hideGlobalLoading();
+        }
+        void detail.elt;
     });
 }

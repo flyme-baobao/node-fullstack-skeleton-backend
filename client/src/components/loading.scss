@@ -1,0 +1,53 @@
+/* 请求 Loading 样式，方案详见 docs/loading.md，组件在 components/loading.ts ----
+  全局视口遮罩（JS）：loading.ts 注入 loading.html，复用 .loading-spinner；
+  DOM 区域遮罩（CSS）：hx-indicator 指向 .loading-region 容器，htmx 加/摘
+  .htmx-request 控制显隐。spinner 尺寸由父级指定。
+*/
+
+.loading-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  border: 2px solid rgb(16 185 129 / 0.25); /* emerald-600/25 底圈 */
+  border-top-color: rgb(5 150 105); /* emerald-600 亮弧 */
+  border-radius: 9999px;
+  animation: loading-spin 0.7s linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 弱动效偏好：不静止（保留「进行中」暗示），仅降速 */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background-color: rgb(255 255 255 / 0.5);
+}
+
+.loading-region {
+  position: relative;
+}
+
+.loading-region > .loading-overlay {
+  display: none;
+}
+
+/* 请求进行中：半透明遮罩盖住区域，既给反馈也顺手挡住区域内的重复操作；
+   容器不是 swap 目标（hx-target 指向其内部元素），outerHTML 替换不会带走遮罩。
+   形态差异只在定位：absolute 铺满容器（全局形态是 fixed inset-0，写在模板上） */
+.loading-region.htmx-request > .loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex; /* 隐藏规则优先级更高，这里必须显式恢复显示 */
+}

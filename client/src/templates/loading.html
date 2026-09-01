@@ -1,0 +1,10 @@
+<!--
+    全局 Loading 遮罩骨架（视口覆盖）：bootstrap 启动期间由 components/loading.ts 克隆注入 body，
+    首屏内容 swap 完成后移除。DOM 区域 loading 走另一形态（.loading-region 遮罩，CSS 驱动，见 components/loading.scss）。
+    纯静态骨架 + data-loading-text 文案槽：语言包未回填前沿用下方默认文案，就绪后由 loading.ts 覆写为 t('common.loading')。
+-->
+<div class="loading-overlay fixed inset-0 z-70 flex-col gap-3"
+    role="status" aria-busy="true">
+    <span class="loading-spinner h-8 w-8"></span>
+    <span class="text-sm text-gray-500" data-loading-text>加载中…</span>
+</div>

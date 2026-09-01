@@ -2,6 +2,9 @@
     "app": {
         "title": "待办清单"
     },
+    "common": {
+        "loading": "加载中…"
+    },
     "nav": {
         "home": "首页",
         "list": "待办清单",

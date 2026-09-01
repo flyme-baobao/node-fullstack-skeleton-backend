@@ -17,9 +17,6 @@ export type ConfirmEvent = CustomEvent<{
     issueRequest: (skipConfirmation?: boolean) => void;
 }>;
 
-/** 确认框是否已存在（避免重复创建） */
-let modalRoot: HTMLElement | null = null;
-
 /** 弹窗配置：标题、确认文案、配色、图标 */
 interface ConfirmOptions {
     title?: string;
@@ -81,6 +78,7 @@ export async function openConfirm(
         const resolveAndClose = (value: boolean) => {
             closeModal();
             resolve(value);
+            document.removeEventListener('keydown', onKey);
         };
 
         // 事件绑定
@@ -104,7 +102,6 @@ export async function openConfirm(
 function closeModal(): void {
     const old = document.getElementById('confirm-overlay');
     if (old) old.remove();
-    modalRoot = null;
 }
 
 /**

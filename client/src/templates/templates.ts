@@ -14,6 +14,7 @@
 const TEMPLATE_FILE_BY_ID = {
     'toast-template': 'toast.html',
     'confirm-template': 'confirm.html',
+    'loading-template': 'loading.html',
 } as const;
 
 export type TemplateId = keyof typeof TEMPLATE_FILE_BY_ID;
