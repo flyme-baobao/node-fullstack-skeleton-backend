@@ -29,6 +29,14 @@ docker compose config > resolved.txt
 >
 > **生产**：**不落 `.env` 文件**。运行期变量全部由 GitLab 后台 CI/CD Variables 注入，经 `deploy_prod` 阶段的 `ssh ... export` 传给远程 shell 再交给 compose。生产机上若调用 `source .env` 会因文件不存在而失败，故生产切勿使用。
 
+### 生产无 `.env` 时，Prisma / schema.prisma 怎么拿到 DATABASE_URL
+
+- [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 里的 `env("DATABASE_URL")` 读取的是“当前进程环境变量”，不是固定读某个 `.env` 文件。
+- 生产场景下，Compose 会先用外部注入的 `DB_USER`、`DB_PASSWORD`、`DB_HOST`、`DB_PORT`、`DB_NAME`、`REDIS_PASSWORD`、`REDIS_HOST`、`REDIS_PORT` 把 [docker-compose.yml](docker-compose.yml) 里的 `DATABASE_URL`、`REDIS_URL` 拼出来，再把结果注入 `fullstack-app` 容器进程。
+- 因此即使生产机没有 `.env` 文件，只要 `fullstack-app.environment` 里成功注入了 `DATABASE_URL`，应用内的 Prisma Client 与 [server/src/db/db.config.ts](server/src/db/db.config.ts) 都能正常通过 `process.env.DATABASE_URL` 读取到它。
+- 同理，后续 Redis 接入业务后，[server/src/db/db.config.ts](server/src/db/db.config.ts) 里的 `process.env.REDIS_URL` 也会读取到 Compose 注入值。
+- 需要注意的是：`schema.prisma` 本身不会“主动去读 docker-compose.yml”；真正起作用的是 Compose 把变量写进容器进程环境后，Prisma 在运行时再通过 `env("DATABASE_URL")` 读取当前进程环境变量。
+
 ```bash
 # —— 本地（compose 自动读当前目录 .env 做插值，无需 source）——
 docker compose config            # 校验渲染结果（.env 缺失变量会显示空值/告警）

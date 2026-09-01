@@ -1,0 +1,37 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+	ACTIVE
+	DISABLED
+}
+
+model Todo {
+	id        Int      @id @default(autoincrement())
+	text      String   @db.VarChar(280)
+	done      Boolean  @default(false)
+	createdAt DateTime @default(now()) @map("created_at")
+	updatedAt DateTime @updatedAt @map("updated_at")
+	isDeleted Boolean  @default(false) @map("is_deleted")
+
+	@@map("todos")
+}
+
+model User {
+	id           Int        @id @default(autoincrement())
+	email        String     @unique @db.VarChar(191)
+	userName     String?    @unique @map("user_name") @db.VarChar(80)
+	phoneNumber  String?    @unique @map("phone_number") @db.VarChar(32)
+	passwordHash String?    @map("password_hash") @db.VarChar(255)
+	status       UserStatus @default(ACTIVE)
+	createdAt    DateTime   @default(now()) @map("created_at")
+	updatedAt    DateTime   @updatedAt @map("updated_at")
+
+	@@map("users")
+}

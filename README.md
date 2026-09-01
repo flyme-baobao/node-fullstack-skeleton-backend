@@ -190,8 +190,42 @@ npm run build:client     # 仅构建前端产物到 dist-client/（js/main.js + 
 npm run build:client:dev # 同上，但用 --mode development 构建，产物带 sourcemap 便于调试
 npm run build:server     # 编译后端到 dist-server/（tsc + 拷贝 .ejs/.json 等静态资源）
 npm run build:all        # 前后端一起构建（build:server && build:client）
+npm run db:generate      # 通用：按 schema.prisma 生成 Prisma Client，不绑开发环境文件
+npm run db:generate:dev  # 本地开发：固定读取 .env.development 生成 Prisma Client
+npm run db:migrate:dev   # 开发环境：根据 schema 变化生成并执行 migration
+npm run db:migrate:deploy # 生产/部署环境：只执行仓库里已有的 migration，不创建新 migration
 npm test                 # 运行测试
 ```
+
+### Prisma 命令用途
+
+- `npm run db:generate`：通用生成命令，只负责按 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 生成 Prisma Client 与类型，不改数据库表结构。
+- `npm run db:generate:dev`：本地开发专用生成命令，固定读取 [.env.development](.env.development) 执行 generate，适合单独刷新 Prisma Client。
+- `npm run db:migrate:dev`：开发环境命令，生成并执行 migration，把 schema 变更真正落到开发数据库。
+- `npm run db:migrate:deploy`：生产/部署命令，只执行仓库里已提交的 migration，不在部署现场创建新 migration。
+
+### 本地开发启动顺序
+
+如果走的是“宿主机跑 Node，Docker 只起中间件”的开发模式，推荐顺序如下：
+
+1. `docker compose -f docker-compose.develop.yml up -d`
+2. 如果这次改了 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 里的表结构，再执行 `npm run db:migrate:dev`
+3. 启动应用：通常直接执行 `npm run dev`；如果只调后端，则执行 `npm run dev:server`
+
+可以按场景理解：
+
+- **改了表结构**：先起 Postgres / Redis，再跑 `npm run db:migrate:dev`，最后执行 `npm run dev`
+- **没改表结构**：起完 Postgres / Redis 后，通常直接执行 `npm run dev` 即可
+- **只刷新 Prisma Client / 类型**：不跑 migration，改为执行 `npm run db:generate:dev`
+
+推荐顺序：
+
+- 本地开发改表结构：修改 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 后直接执行 `npm run db:migrate:dev`
+- 本地只刷新 Prisma Client：执行 `npm run db:generate:dev`
+- CI / 镜像构建：执行 `npm run db:generate`
+- 生产发布：数据库就绪后执行 `npm run db:migrate:deploy`，再启动新版本服务
+
+更完整的原理与执行顺序说明见 [docs/prisma-workflow.md](docs/prisma-workflow.md)。
 
 > `npm run dev` 由 `concurrently -k` 并发拉起两个进程；其中 `dev:client` 用 `scripts/dev-client.js`（而非 shell 变量，兼顾 Windows）加载 `.env` 并轮询等待后端端口就绪，因此**严格先起 server 再起 client**。开发时浏览器访问 **http://localhost:${VITE_PORT}**；Express 由 `node --watch-path=server/src` 在后端源码变更时自行重启，Vite 由自己的 dev server 做前端热更。
 ### Docker 构建时动态注入 mode

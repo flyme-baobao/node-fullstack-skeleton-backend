@@ -11,13 +11,28 @@
  *   2. 在入口（server/src/index.ts 或 app.ts）启动时 await 初始化；
  *   3. repository 层从本模块取实例，而不直接触碰 Prisma。
  */
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../utils/logger.js';
 import { hasDatabase } from './db.config.js';
 
-/**
- * 数据库是否就绪。
- * 当前恒为 false（未接入）；接入后，初始化连接成功才置 true。
- */
-export const databaseReady = false;
+type GlobalWithPrisma = typeof globalThis & {
+    __prisma?: PrismaClient;
+};
+
+const globalForPrisma = globalThis as GlobalWithPrisma;
+
+export const prisma = globalForPrisma.__prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.__prisma = prisma;
+}
+
+let ready = false;
+
+/** 数据库是否已完成连接初始化。 */
+export function databaseReady(): boolean {
+    return ready;
+}
 
 /**
  * 抛出「数据库未接入」的哨兵错误，防止业务侧误用未初始化的数据库。
@@ -27,4 +42,31 @@ export function requireDatabase(): never {
     throw new Error(
         `数据库尚未接入：DATABASE_URL=${hasDatabase ? '已配置' : '未配置'}。当前数据走 JSON 文件存储。`,
     );
+}
+
+/** 启动阶段主动建立数据库连接，缺配置时直接失败，不允许静默回退。 */
+export async function connectDatabase(): Promise<PrismaClient> {
+    if (!hasDatabase) {
+        throw new Error('DATABASE_URL 未配置，无法连接 PostgreSQL。');
+    }
+
+    if (ready) {
+        return prisma;
+    }
+
+    await prisma.$connect();
+    ready = true;
+    logger.info('PostgreSQL connected');
+    return prisma;
+}
+
+/** 进程退出时释放 Prisma 连接。 */
+export async function disconnectDatabase(): Promise<void> {
+    if (!ready) {
+        return;
+    }
+
+    await prisma.$disconnect();
+    ready = false;
+    logger.info('PostgreSQL disconnected');
 }

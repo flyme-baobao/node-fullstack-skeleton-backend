@@ -7,13 +7,16 @@ import { registerShutdown } from './runtime/shutdownRuntime.js';
 import { installProcessErrorGuard } from './runtime/processErrors.js';
 import { logger } from './utils/logger.js';
 import { listenWithRetry } from './utils/listenWithRetry.js';
+import { connectDatabase, disconnectDatabase } from './db/index.js';
 
 // NODE_ENV 由【进程环境】决定（docker/cli 注入），不从 .env 读
 const isProd = process.env.NODE_ENV === 'production';
-
 if (!isProd) {
-    // 开发环境：读取 .env，加载到 process.env，不覆盖 已有的环境变量（例如 docker-compose.yml 注入的），避免覆盖掉 compose 注入的端口等配置
-    dotenv.config({ path: '.env.development', override: false });
+    // 开发环境：读取 .env.development，加载到 process.env
+    // override:true → 文件优先，纠正 shell/系统里可能残留的同名旧值（如 host=postgres 的 DATABASE_URL）
+    // 安全性：develop.yml 只有 DB 容器、没有 app 服务，dev 进程永远跑宿主机，不存在覆盖容器注入的场景；
+    //        生产容器 NODE_ENV=production 不进此分支，也不受影响
+    dotenv.config({ path: '.env.development', override: true });
 }
 // 生成 环境 CI注入 和 docker-compose.yml 注入，而且生成环境 也没有 .env 文件
 
@@ -25,6 +28,8 @@ const port = isProd ? 3000 : Number(process.env.SERVER_PORT) || 3000;
 installProcessErrorGuard();
 
 async function main(): Promise<void> {
+    await connectDatabase();
+
     const app = await createApp();
 
     // 生产：Express 直连服务构建产物（dist-client），并对 /list 等深链做 SPA 兜底。
@@ -42,7 +47,7 @@ async function main(): Promise<void> {
     });
 
     // 把退场逻辑注册到 SIGTERM / SIGINT，收到信号时尽快释放 server（Vite 已独立，由 concurrently 统一管理）
-    registerShutdown({ server });
+    registerShutdown({ server, closeApp: disconnectDatabase });
 }
 
 main().catch((err) => {

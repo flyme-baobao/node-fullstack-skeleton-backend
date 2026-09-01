@@ -12,6 +12,11 @@
         "build:client:dev": "node scripts/build-client.js --mode development",
         "build:server": "tsc -p tsconfig.server.json && node scripts/build-server.js",
         "build:all": "npm run build:server && npm run build:client",
+        "db:generate": "prisma generate --schema server/src/db/prisma/schema.prisma",
+        "db:generate:dev": "node scripts/db‑development-env‑loader.js ./node_modules/prisma/build/index.js generate --schema server/src/db/prisma/schema.prisma",
+        "db:reset:dev": "node scripts/db‑development-env‑loader.js ./node_modules/prisma/build/index.js migrate reset --schema server/src/db/prisma/schema.prisma",
+        "db:migrate:dev": "node scripts/db‑development-env‑loader.js ./node_modules/prisma/build/index.js migrate dev --schema server/src/db/prisma/schema.prisma",
+        "db:migrate:deploy": "prisma migrate deploy --schema server/src/db/prisma/schema.prisma",
         "typecheck": "tsc --noEmit",
         "test": "tsx --test --test-concurrency=1",
         "test:watch": "tsx --test --watch"
@@ -25,6 +30,7 @@
         "node": ">=18.0.0"
     },
     "dependencies": {
+        "@prisma/client": "^6.15.0",
         "dotenv": "^17.4.2",
         "ejs": "^6.0.1",
         "express": "^5.2.1",
@@ -40,6 +46,7 @@
         "concurrently": "^9.2.1",
         "cross-env": "^10.1.0",
         "jiti": "^2.7.0",
+        "prisma": "^6.15.0",
         "sass": "^1.102.0",
         "supertest": "^7.2.2",
         "tailwindcss": "^4.1.12",

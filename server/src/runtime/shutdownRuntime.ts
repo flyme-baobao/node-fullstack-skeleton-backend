@@ -3,6 +3,7 @@ import type http from 'node:http';
 
 type RegisterShutdownOptions = {
     server: http.Server;
+    closeApp?: () => Promise<void>;
 };
 
 /**
@@ -12,8 +13,8 @@ type RegisterShutdownOptions = {
  * 由 concurrently 统一启停），因此这里只负责在收到 SIGTERM / SIGINT 时关闭
  * HTTP server，不再处理开发环境下的 Vite 资源。
  */
-export function registerShutdown({ server }: RegisterShutdownOptions): void {
-    const shutdown = createGracefulShutdown({ server });
+export function registerShutdown({ server, closeApp }: RegisterShutdownOptions): void {
+    const shutdown = createGracefulShutdown({ server, closeApp });
 
     for (const signal of SHUTDOWN_SIGNALS) {
         process.once(signal, () => {
