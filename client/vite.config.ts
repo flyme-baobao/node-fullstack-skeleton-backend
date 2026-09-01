@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { defineConfig } from 'vite';
+import { defineConfig, type ProxyOptions } from 'vite';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
@@ -22,6 +22,21 @@ const vitePort = Number(process.env.VITE_PORT) || 5173;
 const serverPort = Number(process.env.SERVER_PORT) || 3006;
 
 let reqId = 0; // 用于给每个请求分配唯一 id，便于日志追踪
+
+const createProxyConfig = (): ProxyOptions => ({ 
+    target: `http://localhost:${serverPort}`, 
+    changeOrigin: true, 
+    configure(proxy) {
+        // 代理发生错误时打印
+        proxy.on('error', (err, req, res) => {
+            console.error('【代理错误】URL:', req.url, 'err:', err.message);
+        });
+        // 打印转发出去的真实路径
+        proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('转发', req.method, req.url, '→', proxyReq.path);
+        });
+    } 
+})
 
 // 该项目的角色：为服务端渲染的 Express 应用编译前端资源（htmx 入口、CSS）
 // - dev: 独立 dev server（双端口），把「SSR 页面路由」代理到 Express 后端，前端模块交给 Vite transform
@@ -79,12 +94,12 @@ export default defineConfig(({ mode }) => {
                 //         return url; // 交给 Vite
                 //     },
                 // },
-                '/api': { target: `http://localhost:${serverPort}`, changeOrigin: true },
-                '/page': { target: `http://localhost:${serverPort}`, changeOrigin: true },
+                '/api': createProxyConfig(),
+                '/page': createProxyConfig(),
             },
         },
         build: {
-            sourcemap: !isProdMode,   // production 无 map，其余有 map
+            sourcemap: !isProdMode,   // production  无 map，其余有 map
             emptyOutDir: true,
             // 关闭 css code-split，让样式汇总为单一 style 文件，由 Vite 生成的 index.html <link> 引用
             cssCodeSplit: false,
