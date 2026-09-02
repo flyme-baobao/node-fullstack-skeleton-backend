@@ -4,6 +4,12 @@
     <span class="min-w-0 flex-1 text-sm <%= done ? 'text-gray-400 line-through' : 'text-gray-800' %>">
         <%= text %>
     </span>
+    <span class="text-sm <%= done ? 'text-gray-400 line-through' : 'text-gray-800' %>">
+        <%= createTimeFormat %>
+    </span>
+    <span class="text-sm <%= done ? 'text-gray-400 line-through' : 'text-gray-800' %>">
+        <%= modifyTimeFormat %>
+    </span>
     <div class="flex shrink-0 items-center gap-2">
         <%#
             button 的 hx-target 和 hx-indicator 从 li 上继承 
