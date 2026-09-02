@@ -33,7 +33,13 @@
         "empty": "暂无待办，添加一条吧 ✨",
         "refresh": "刷新列表",
         "placeholder": "输入要做的事…",
-        "add": "添加"
+        "add": "添加",
+        "columns": {
+            "content": "内容",
+            "create_time": "创建时间",
+            "modify_time": "修改时间",
+            "actions": "操作"
+        }
     },
     "confirm": {
         "title": "确认操作",

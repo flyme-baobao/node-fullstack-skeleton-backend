@@ -1,11 +1,8 @@
 <%#
-    待办清单页 /list 的内容（经 renderPage 注入 app-layout 的 #outlet）。
-    这里把「标题 + 刷新 + 表单 + 列表」作为一个整体（todos 卡片）复用:
-    form 的 hx-target="#todo-list" 与 hx-swap="afterbegin" 强耦合下面的#todo,
-    拆开会破坏「新增后回填列表」的交互，因此整个卡片一起搬进 /list。
-    区域 loading：刷新按钮 hx-indicator 指向 #todo-list-region，请求期间 htmx 给它加
-    .htmx-request → loading.scss 显示容器内 .loading-overlay 遮罩（CSS 驱动，无 JS）。
-    遮罩节点统一抽在 partials/loading.ejs（可选 size 定 spinner 尺寸），两处 include 复用。
+    待办清单页面主体，注入布局#outlet。
+    表单 hx‑target="#todo‑list" + afterbegin 和列表强耦合，不拆分，保证新增回填列表交互。
+    loading：#todo‑list-region 做请求指示器，htmx添加 .htmx‑request，CSS驱动显示loading遮罩。
+    loading片段复用 partials/loading.ejs。
 %>
 <div class="card border border-gray-100 p-6">
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -18,9 +15,10 @@
             </p>
             <p class="text-xs text-gray-400"><%- t('todos.count', { count: todos.length }) %></p>
         </div>
-        <!-- htmx 手动刷新列表：hx-indicator 指向下方列表区域（请求期间显示区域遮罩）；
+        <!-- htmx 手动刷新列表：响应是「表头 + 列表」整块，须替换 #todo-list-block（只换 ul 会表头重复）；
+             hx-indicator 指向下方列表区域（请求期间显示区域遮罩）；
              hx-disabled-elt 请求期间禁用按钮，防连点重复发包 -->
-        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list" hx-swap="outerHTML"
+        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list-block" hx-swap="outerHTML"
             hx-indicator="#todo-list-region" hx-disabled-elt="this">↻ <%= t('todos.refresh') %></button>
     </div>
 
@@ -41,8 +39,8 @@
         <%- include('../partials/loading') %>
     </form>
 
-    <!-- 区域 loading 容器：注意它不是 swap 目标（按钮/form 仍指向内部 #todo-list），
-         outerHTML 替换 ul 不会带走遮罩；请求结束后 htmx 摘掉 .htmx-request，遮罩自动隐藏 -->
+    <!-- 区域 loading 容器：注意它不是 swap 目标（刷新按钮指向 #todo-list-block、form 指向 #todo-list），
+         outerHTML 替换表头+列表不会带走遮罩；请求结束后 htmx 摘掉 .htmx-request，遮罩自动隐藏 -->
     <div class="loading-region rounded-xl border border-gray-100 p-2 sm:p-3" id="todo-list-region">
         <%- include('../partials/list', { todos }) %>
         <%- include('../partials/loading') %>

@@ -33,7 +33,13 @@
         "empty": "Nothing here yet, add a task ✨",
         "refresh": "Refresh",
         "placeholder": "What needs doing?",
-        "add": "Add"
+        "add": "Add",
+        "columns": {
+            "content": "Content",
+            "create_time": "Create Time",
+            "modify_time": "Modify Time",
+            "actions": "Actions"
+        }
     },
     "confirm": {
         "title": "Confirm action",

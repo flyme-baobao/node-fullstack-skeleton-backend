@@ -1,11 +1,27 @@
-<ul class="max-h-65 space-y-2 overflow-y-auto p-0" id="todo-list">
-    <% if (todos.length===0) { %>
-        <li class="rounded-lg bg-gray-50 p-6 text-center text-sm text-gray-400">
-            <%= t('todos.empty') %>
-        </li>
-        <% } else { %>
-            <% todos.forEach((todo)=> { %>
-                <%- include('./item', todo) %>
-            <% }) %>
-        <% } %>
-</ul>
+<%#
+    待办列表partial：页面与htmx片段共用。
+    结构：#todo‑list-block(表头 + ul列表)，表头放在ul外部：
+    1. 新增待办：hx‑target="#todo‑list" + afterbegin，插入ul内部首位；表头放ul外，避免被新增条目插到前面。
+    2. 整块刷新/删空回退：以 #todo‑list-block 为替换目标；逐条增删仅操作ul内部。
+    表头仅使用全局t()，禁止访问todo实例字段，防止ReferenceError。
+    表头与item.ejs统一flex列宽，保证列对齐。
+%>
+<div id="todo-list-block">
+    <div class="flex items-center justify-between gap-3 mb-3 border-b border-gray-100 px-4 pb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+        <span class="min-w-0 flex-1"><%= t('todos.columns.content') %></span>
+        <span class="hidden w-40 shrink-0 sm:block"><%= t('todos.columns.create_time') %></span>
+        <span class="hidden w-40 shrink-0 sm:block"><%= t('todos.columns.modify_time') %></span>
+        <span class="w-48 shrink-0"><%= t('todos.columns.actions') %></span>
+    </div>
+    <ul class="max-h-65 space-y-2 overflow-y-auto p-0" id="todo-list">
+        <% if (todos.length===0) { %>
+            <li class="rounded-lg bg-gray-50 p-6 text-center text-sm text-gray-400">
+                <%= t('todos.empty') %>
+            </li>
+            <% } else { %>
+                <% todos.forEach((todo)=> { %>
+                    <%- include('./item', todo) %>
+                <% }) %>
+            <% } %>
+    </ul>
+</div>
