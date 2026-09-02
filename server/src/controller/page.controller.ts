@@ -23,7 +23,7 @@ export function createPageHandler(path: string, meta: PageMeta) {
 
         await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
 
-        const todos = await listTodos();
+        const todos = await listTodos(ctx.userContext);
         await ctx.renderPage(meta.view, {
             title: meta.title,
             todos,

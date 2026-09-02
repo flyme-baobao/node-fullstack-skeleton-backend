@@ -55,7 +55,7 @@ export class HttpError extends Error {
  */
 export function notFoundHandler(req: Request, res: Response): void {
     logger.warn('[not-found]', {
-        requestId: req.id,
+        requestId: req.requestId,
         method: req.method,
         url: req.originalUrl,
     });
@@ -104,7 +104,7 @@ export function errorHandler(
         // 导致 4xx 输入校验错误在 Docker Logs 里静默。这里统一补一条结构化日志。
         // 分级：5xx（服务端故障）走 error，4xx（客户端输入、未命中资源等）走 warn。
         const meta = {
-            requestId: req.id,
+            requestId: req.requestId,
             method: req.method,
             url: req.originalUrl,
             status: err.status,
@@ -140,7 +140,7 @@ export function errorHandler(
         parseErr.type.startsWith('entity.')
     ) {
         logger.warn('[bad-request]', {
-            requestId: req.id,
+            requestId: req.requestId,
             method: req.method,
             url: req.originalUrl,
             status: parseErr.status,
@@ -161,7 +161,7 @@ export function errorHandler(
     // 未知异常：结构化记录，统一 500
     const e = err instanceof Error ? err : new Error(String(err));
     logger.error('[error]', {
-        requestId: req.id,
+        requestId: req.requestId,
         method: req.method,
         url: req.originalUrl,
         name: e.name,

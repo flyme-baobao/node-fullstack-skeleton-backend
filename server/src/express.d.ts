@@ -22,7 +22,7 @@ declare global {
             /** 衍生标记：有效的 htmx 片段请求，排除历史恢复回退场景 */
             isFragment: boolean;
             /** 当前请求唯一标识（requestId 中间件生成，回写 X-Request-Id） */
-            id: string;
+            requestId: string;
             /** 用户时区（userContext 中间件读 browser_tz cookie，非法/缺失回落 UTC） */
             userTimeZone: string;
             /** 用户语言（userContext 中间件代理 req.language，i18next 探测结果） */

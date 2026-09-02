@@ -360,7 +360,7 @@ nonExplicitSupportedLngs: true,     // 允许“纯语言码”（如 zh / en）
 
 ### requestId 中间件（`middleware/requestId.middleware.ts`）
 
-每个请求用 `crypto.randomUUID()` 生成唯一 `req.id`，并回写 `X-Request-Id` 响应头，供前端/日志按请求追溯。需在业务路由**之前**挂载（`app.ts` 放在 body 解析之后）。
+每个请求用 `crypto.randomUUID()` 生成唯一 `req.requestId`，并回写 `X-Request-Id` 响应头，供前端/日志按请求追溯。需在业务路由**之前**挂载（`app.ts` 放在 body 解析之后）。
 
 ### 结构化日志（`utils/logger.ts`）
 
@@ -368,7 +368,7 @@ nonExplicitSupportedLngs: true,     // 允许“纯语言码”（如 zh / en）
 
 ```ts
 import { logger } from '../utils/logger.js';
-logger.info('create todo', { requestId: req.id, title });
+logger.info('create todo', { requestId: req.requestId, title });
 logger.error('[unhandledRejection]', { name, message, stack });
 ```
 

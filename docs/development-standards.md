@@ -309,22 +309,22 @@ app.use(errorHandler);     // 必须最后，4 参签名才被 Express 识别
 ```ts
 export function requestId(req, res, next) {
     const id = randomUUID();
-    req.id = id;
+    req.requestId = id;
     res.setHeader('X-Request-Id', id);
     next();
 }
 ```
 
-- 给每次请求生成 `crypto.randomUUID()`，写入 `req.id`，并回写 `X-Request-Id` 响应头。
-- **挂载位**：`app.ts` 中放在 body 解析之后、业务中间件之前，让后续每个中间件/controller 都能拿到 `req.id`。
-- **消费方式**：日志统一带 `{ requestId: req.id }`，据此把一次请求的所有日志串起来。
+- 给每次请求生成 `crypto.randomUUID()`，写入 `req.requestId`，并回写 `X-Request-Id` 响应头。
+- **挂载位**：`app.ts` 中放在 body 解析之后、业务中间件之前，让后续每个中间件/controller 都能拿到 `req.requestId`。
+- **消费方式**：日志统一带 `{ requestId: req.requestId }`，据此把一次请求的所有日志串起来。
 
 ### 10.2 `logger`（`utils/logger.ts`）
 
 零依赖的 JSON 结构化日志：**每行一个 JSON 对象** `{ ts, level, msg, ...meta }`，便于按字段 grep。
 
 ```ts
-logger.info('create todo', { requestId: req.id, title });
+logger.info('create todo', { requestId: req.requestId, title });
 logger.warn('...');  logger.error('...');   // warn/error 走 console.error/warn
 ```
 
