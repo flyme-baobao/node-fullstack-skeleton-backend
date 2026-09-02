@@ -59,8 +59,11 @@ export function showGlobalLoading(): void {
 
     const text = el.querySelector<HTMLElement>('[data-loading-text]');
     if (text) {
-        const translated = t('common.loading');
-        if (translated !== 'common.loading') text.textContent = translated;
+        let loadingText = t('common.loading');
+        if (loadingText === 'common.loading') {
+            loadingText = 'Loading...';
+        };
+        text.textContent = loadingText
     }
 
     document.body.appendChild(el);

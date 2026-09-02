@@ -180,11 +180,15 @@ export function mountHtmxLifecycle(): void {
         // 兜底过滤：万一 422 仍到这里（配置差异）也静默，不弹全局 toast
         if (detail.xhr.status === 422) return;
         logger.error('htmx responseError', errorMeta(detail));
+        let msg = t('toast.request_failed', {
+            status: detail.xhr.status,
+            message: extractErrorMessage(detail.xhr),
+        })
+        if (msg === 'toast.request_failed') {
+            msg = `Request failed: ${detail.xhr.status} ${detail.xhr.statusText}`;
+        }
         showToast(
-            t('toast.request_failed', {
-                status: detail.xhr.status,
-                message: extractErrorMessage(detail.xhr),
-            }),
+            msg,
             ToastVariant.Error,
         );
         void detail.error;
