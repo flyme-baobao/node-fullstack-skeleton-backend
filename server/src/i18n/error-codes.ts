@@ -26,6 +26,8 @@ export const ERROR_CODES = {
     remove_not_found: { code: 40402, message: 'errors.remove_not_found', status: 404 },
     create_failed:    { code: 50001, message: 'errors.create_failed', status: 500 },
     remove_failed:    { code: 50002, message: 'errors.remove_failed', status: 500 },
+    db_error:          { code: 50003, message: 'errors.db_error', status: 500 },
+    db_not_configured: { code: 50004, message: 'errors.db_not_configured', status: 500 },
     bad_request:      { code: 400,   message: 'errors.bad_request', status: 400 },
     not_found:        { code: 404,   message: 'errors.not_found', status: 404 },
     internal_error:   { code: 500,   message: 'errors.internal_error', status: 500 },

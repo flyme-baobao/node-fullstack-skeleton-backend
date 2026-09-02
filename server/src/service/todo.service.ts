@@ -66,7 +66,7 @@ export async function removeTodo(id: number): Promise<RemoveResult> {
                 success: false,
                 code: ERROR_CODES.remove_not_found.code,
                 reason: 'not_found',
-                status: 404
+                status: ERROR_CODES.remove_not_found.status
             };
         }
         return { success: true };
@@ -76,7 +76,7 @@ export async function removeTodo(id: number): Promise<RemoveResult> {
             success: false,
             code: ERROR_CODES.remove_failed.code,
             reason: 'remove_failed',
-            status: 500
+            status: ERROR_CODES.remove_failed.status
         };
     }
 }

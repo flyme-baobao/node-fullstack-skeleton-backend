@@ -3,6 +3,7 @@ import type { WebContext } from '../adapter/webCtx.js';
 import { createWebCtx } from '../adapter/webCtx.js';
 import * as todoService from '../service/todo.service.js';
 import { HttpError } from '../middleware/error.middleware.js';
+import { ERROR_CODES } from '../i18n/error-codes.js';
 import { sleep } from '../utils/sleep.js';
 
 /**
@@ -37,8 +38,8 @@ export async function listFragment(req: Request, res: Response): Promise<void> {
 function parseValidId(ctx: WebContext): number {
     const id = Number(ctx.params.id ?? '');
     if (!Number.isInteger(id) || id < 0) {
-        // 40002 = invalid_id；status 由调用方定，code 属业务层并映射 i18n key
-        throw new HttpError({ status: 400, code: 40002 });
+        // status 由调用方定，code 属业务层并映射 i18n key
+        throw new HttpError({ ... ERROR_CODES.invalid_id });
     }
     return id;
 }
@@ -50,7 +51,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
     const text = String(ctx.body?.text ?? '').trim();
     if (!text) {
         // 非法入参：空文本，直接拦截，不进入 service
-        throw new HttpError({ status: 400, code: 40001 }); // 40001 todo_empty
+        throw new HttpError({ ...ERROR_CODES.todo_empty });
     }
 
     const newItem = await todoService.createTodo({ text });
@@ -59,7 +60,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
 
     if (!newItem) {
         // 入参已清洗且非空，此处仍失败 = 服务端故障（持久化/底层异常）→ 500
-        throw new HttpError({ status: 500, code: 50001 }); // 50001 create_failed
+        throw new HttpError({ ...ERROR_CODES.create_failed });
     }
 
     // 空 → 第一条：原来是空列表占位，必须整体替换才能去掉“暂无待办”
@@ -84,7 +85,9 @@ export async function toggleTodo(req: Request, res: Response): Promise<void> {
     await sleep(DB_LATENCY_MS); // 模拟数据库读写
 
     if (!item) {
-        throw new HttpError({ status: 404, code: 40401 }); // 40401 toggle_not_found，待切换的待办不存在
+        throw new HttpError({
+            ...ERROR_CODES.toggle_not_found,
+        });
     }
     ctx.render('partials/item', item);
 }
@@ -101,8 +104,11 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     await sleep(DB_LATENCY_MS); // 模拟数据库删除
 
     if (!result.success) {
-        const _defaultStatus = 500;
-        throw new HttpError({ status: result.status ?? _defaultStatus, code: result.code ?? _defaultStatus });
+        // result 未带 status/code 时兑底为 remove_failed（50002/500）
+        throw new HttpError({
+            status: result.status ?? ERROR_CODES.remove_failed.status,
+            code: result.code ?? ERROR_CODES.remove_failed.code,
+        });
     }
 
     if (await todoService.countTodos() === 0) {

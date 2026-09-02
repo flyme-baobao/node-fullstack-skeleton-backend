@@ -27,6 +27,8 @@ docker compose config > resolved.txt
 
 > **本地**：compose 命令（`up` / `config`）会自动读取**当前目录的 `.env`** 做 `<VAR>` 占位插值，**无需**通过 `set -a && source .env && set +a` 手动加载进 Shell —— 那套在 run 命令里才会用到，这里直接用默认行为即可。想要显式指定就用 `--env-file .env`。
 >
+> ⚠️ **例外：develop 栈**（`docker-compose.develop.yml`）默认读 `.env` 会插值出生产参数（`DB_HOST=postgres` 宿主机连不上、库名/账号也是 prod 套），必须显式 `--env-file .env.development`。
+>
 > **生产**：**不落 `.env` 文件**。运行期变量全部由 GitLab 后台 CI/CD Variables 注入，经 `deploy_prod` 阶段的 `ssh ... export` 传给远程 shell 再交给 compose。生产机上若调用 `source .env` 会因文件不存在而失败，故生产切勿使用。
 
 ### 生产无 `.env` 时，pg 驱动怎么拿到 DATABASE_URL
@@ -54,8 +56,9 @@ docker compose --env-file .env up -d
 # 适用：日常业务开发、热更新调试，无需容器打包
 # 固定三步顺序不可乱：①启动PG+Redis中间件 ②执行db:init（首次/改表执行，脚本幂等）③启动本机Node；
 # ⚠️②必须在③之前，否则服务启动探测连通但无表，业务请求500；①必须早于②，中间件未就绪db:init直接报错；
+# ⚠️compose插值默认只读 .env（生产参数，DB_HOST=postgres 宿主机连不上、库名/账号也是 prod 套），develop 栈必须 --env-file 显式指定 .env.development；
 # DB_HOST统一使用.env.development的127.0.0.1；非生产NODE_ENV自动读取宿主机.env.development的DB_*变量
-docker compose -f docker-compose.develop.yml up -d
+docker compose --env-file .env.development -f docker-compose.develop.yml up -d
 npm run db:init
 npm run dev          # 或只启服务端：npm run dev:server
 
@@ -96,6 +99,8 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml down
 # ---- 5. 彻底清空 local / test 数据（测试重置使用，谨慎操作）----
 docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
 docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
+# down 不需要环境变量插值（project 名由 develop.yml 的 name: 决定），带 --env-file 仅为命令统一
+docker compose --env-file .env.development -f docker-compose.develop.yml down -v
 
 # ---- 6. 查询容器里面的环境变量 ----
 docker ps
@@ -108,7 +113,7 @@ docker inspect ${POD_NAME} -f '{{range .Config.Env}}{{.}}{{"\n"}}{{end}}'
 
 | 场景 | 用哪个文件 | 命令 | Node 位置 | DB/Redis 访问地址 | db:init 时机 |
 |---|---|---|---|---|---|
-| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `up -d` → `db:init` → `npm run dev` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）| 中间件起来后、dev 前（宿主机执行） |
+| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `--env-file .env.development up -d` → `db:init` → `npm run dev` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）| 中间件起来后、dev 前（宿主机执行） |
 | 本地全容器模拟生产 | `docker-compose.yml` + `-f docker-compose.local.yml` | `up -d --build` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
 | 验证已 push 镜像 | `docker-compose.yml` + `-f docker-compose.test.yml` | `up -d` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
 | 停止 local / test 栈 | base+local 或 base+test（与启动时一致） | `down` | — | — | 不需要 |

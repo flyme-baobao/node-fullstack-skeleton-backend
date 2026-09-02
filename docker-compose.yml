@@ -1,3 +1,6 @@
+# 项目名：base 不写 name，用默认目录名 node-fullstack-skeleton-backend 作为 project；
+# develop.yml 显式 name: fullstack-skeleton-dev，两栈 project 名不同即可隔离，互不 recreate。
+# 生产环境只跑本文件（无 develop.yml），project 名是什么都不影响。
 version: '3.8' # compose语法版本，3.8兼容绝大多数docker环境
 
 # 自定义桥接网络，容器内部可使用服务名 postgres、redis作为host访问

@@ -21,8 +21,10 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // 连接串拼装：与 server/src/db/db.config.ts 的 buildConnectionString 保持同一规则
+// （DATABASE_URL 残留 "${" 说明是 dotenv 未展开的嵌套引用字面量，忽略并走 DB_* 分量兜底，避免 pg Invalid URL）
 function buildConnectionString() {
-    if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+    const url = process.env.DATABASE_URL;
+    if (url && !url.includes('${')) return url;
     const { DB_USER, DB_PASSWORD, DB_HOST, DB_NAME } = process.env;
     if (!DB_USER || !DB_PASSWORD || !DB_HOST || !DB_NAME) return undefined;
     const port = process.env.DB_PORT ?? '5432';

@@ -11,6 +11,8 @@
 import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { buildConnectionString } from './db.config.js';
+import { HttpError } from '../middleware/error.middleware.js';
+import { ERROR_CODES } from '../i18n/error-codes.js';
 
 type GlobalWithPgPool = typeof globalThis & {
     __pgPool?: Pool;
@@ -36,9 +38,13 @@ export function getPool(): Pool {
 
     const connectionString = buildConnectionString();
     if (!connectionString) {
-        throw new Error(
-            '数据库未配置：请设置 DATABASE_URL（CI/Docker 注入），或提供 DB_USER/DB_PASSWORD/DB_HOST/DB_NAME（本地 .env.development）。',
-        );
+        // 记日志后再统一抛 HttpError（业务码 50004）：避免裸 Error 落入 errorHandler「未知异常」分支
+        logger.error('db pool init failed: connection not configured', {
+            hint: 'set DATABASE_URL (CI/Docker) or DB_USER/DB_PASSWORD/DB_HOST/DB_NAME (.env.development)',
+        });
+        throw new HttpError({
+            ...ERROR_CODES.db_not_configured,
+        });
     }
 
     const created = new Pool({
@@ -79,11 +85,21 @@ export async function connectDatabase(): Promise<Pool> {
         return current;
     }
 
-    const client = await current.connect();
     try {
-        await client.query('SELECT 1');
-    } finally {
-        client.release();
+        const client = await current.connect();
+        try {
+            await client.query('SELECT 1');
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        // 建连/探测失败（库没起、账号密码错、连接超时等）：记原始原因后统一抛 HttpError（业务码 50003）
+        logger.error('PostgreSQL connect probe failed', {
+            error: err instanceof Error ? err.message : String(err),
+        });
+        throw new HttpError({
+            ...ERROR_CODES.db_error,
+        });
     }
 
     ready = true;

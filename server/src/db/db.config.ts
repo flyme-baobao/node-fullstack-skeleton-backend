@@ -14,10 +14,15 @@ import process from 'node:process';
  * ① 优先取 DATABASE_URL（CI / docker-compose 注入的完整串）；
  * ② 否则用 DB_USER/DB_PASSWORD/DB_HOST/DB_PORT/DB_NAME 分量拼装（本地 .env.development 常用形态）。
  * 两者都没有 → undefined（视为未配置数据库，由启动链路显式失败）。
+ *
+ * ⚠️ ${VAR} 展开只有 compose 的 env 解析器支持，Node 的 dotenv 读进来是字面量。
+ * 若 DATABASE_URL 残留 "${"（.env.development 误写嵌套引用），视为无效配置忽略，走②兜底，
+ * 避免 pg 因 "Invalid URL" 崩溃（pg 无法解析 ${DB_HOST} 里的 { 字符）。
  */
 export function buildConnectionString(): string | undefined {
-    if (process.env.DATABASE_URL) {
-        return process.env.DATABASE_URL;
+    const url = process.env.DATABASE_URL;
+    if (url && !url.includes('${')) {
+        return url;
     }
 
     const user = process.env.DB_USER;

@@ -1,3 +1,7 @@
+# 项目名：develop 栈显式独立 project，与 docker-compose.yml（默认目录名 node-fullstack-skeleton-backend）
+# 隔离——两栈 project 不同，up/down/recreate 互不影响（否则同 project 下会互认对方的 postgres/redis
+# 为"本服务的旧实例"而 recreate，表现为互杀）。
+name: fullstack-skeleton-dev
 version: '3.8' # compose语法版本，3.8兼容绝大多数docker环境
 
 # 自定义桥接网络，容器内部可使用服务名 postgres、redis作为host访问

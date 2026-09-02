@@ -12,6 +12,7 @@
         "build:client:dev": "node scripts/build-client.js --mode development",
         "build:server": "tsc -p tsconfig.server.json && node scripts/build-server.js",
         "build:all": "npm run build:server && npm run build:client",
+        "db:init:dev": "cross-env NODE_ENV=development node scripts/db-init.js",
         "db:init": "node scripts/db-init.js",
         "typecheck": "tsc --noEmit",
         "test": "tsx --test --test-concurrency=1",
