@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { initI18n } from './i18n/config.js';
 import { i18nRequest, localeBridge } from './middleware/i18n.middleware.js';
 import { requestId } from './middleware/requestId.middleware.js';
+import { userContext } from './middleware/user-context.middleware.js';
 import renderPageMiddleware from './middleware/render.middleware.js';
 import {
     injectFragmentFlagMiddleware,
@@ -40,6 +41,10 @@ export async function createApp(): Promise<Express> {
     app.use(requestId);
 
     app.use(i18nRequest()); // ① 每请求解析语言，挂 req.t() / req.i18n
+
+    // 每请求挂用户上下文：req.userTimeZone（browser_tz cookie）+ req.userLocale（代理 req.language）；
+    // 依赖 i18next 已探测好 req.language，故必须在 i18nRequest() 之后
+    app.use(userContext);
 
     // ② 把 req.t 桥接到 res.locals，EJS 模板（含 partials）才能直接用 <%= t('...') %>
     app.use(localeBridge);

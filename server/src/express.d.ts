@@ -23,6 +23,10 @@ declare global {
             isFragment: boolean;
             /** 当前请求唯一标识（requestId 中间件生成，回写 X-Request-Id） */
             id: string;
+            /** 用户时区（userContext 中间件读 browser_tz cookie，非法/缺失回落 UTC） */
+            userTimeZone: string;
+            /** 用户语言（userContext 中间件代理 req.language，i18next 探测结果） */
+            userLocale: string;
         }
 
         interface Response {

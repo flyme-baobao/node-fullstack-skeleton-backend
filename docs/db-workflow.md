@@ -16,14 +16,16 @@
 2. `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` / `DB_NAME` —— 分量拼装（本地 `.env.development` 形态）；
 3. 都没有 → 启动阶段显式报错，不允许静默回退。
 
-> 注意：本地开发在 `.env.development` 配置即可（`npm run dev` 与 `npm run db:init` 都会读它）；
+> 注意：本地开发在 `.env.development` 配置即可（`npm run dev` 与 `npm run db:init:dev` 都会读它）；
 > 生产环境一律由 compose/CI 把 `DATABASE_URL` 注入容器进程，不落 `.env` 文件。
 
 ## 三、表结构初始化（原生 SQL DDL）
 
 - 建表 DDL 集中在 [server/src/db/sql/init.sql](../server/src/db/sql/init.sql)，全部使用
   `CREATE TABLE IF NOT EXISTS`（枚举类型用 `DO $$ ... duplicate_object` 兜底），**幂等可重复执行**。
-- 执行：`npm run db:init`（`scripts/db-init.js`，非生产自动读 `.env.development`）。
+- 执行：两个命令跑同一个脚本 `scripts/db-init.js`，按环境取连接参数——
+  `npm run db:init:dev`（本地开发：显式 `NODE_ENV=development`，强制读 `.env.development`，与 `npm run dev` 同环境）
+  或 `npm run db:init`（通用：跟随 `NODE_ENV`，非生产自动读 `.env.development`；生产容器内不读文件、直接用注入的 `DATABASE_URL`）。
 - 执行时机：
 
 | 场景 | 时机 | 说明 |

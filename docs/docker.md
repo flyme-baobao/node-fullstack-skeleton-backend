@@ -54,12 +54,12 @@ docker compose --env-file .env up -d
 ```bash
 # ---- 1. 纯开发模式（本机跑 Node、Docker 仅启动中间件）----
 # 适用：日常业务开发、热更新调试，无需容器打包
-# 固定三步顺序不可乱：①启动PG+Redis中间件 ②执行db:init（首次/改表执行，脚本幂等）③启动本机Node；
-# ⚠️②必须在③之前，否则服务启动探测连通但无表，业务请求500；①必须早于②，中间件未就绪db:init直接报错；
+# 固定三步顺序不可乱：①启动PG+Redis中间件 ②执行db:init:dev（首次/改表执行，脚本幂等）③启动本机Node；
+# ⚠️②必须在③之前，否则服务启动探测连通但无表，业务请求500；①必须早于②，中间件未就绪db:init:dev直接报错；
 # ⚠️compose插值默认只读 .env（生产参数，DB_HOST=postgres 宿主机连不上、库名/账号也是 prod 套），develop 栈必须 --env-file 显式指定 .env.development；
-# DB_HOST统一使用.env.development的127.0.0.1；非生产NODE_ENV自动读取宿主机.env.development的DB_*变量
+# DB_HOST统一使用.env.development的127.0.0.1；db:init:dev 显式NODE_ENV=development读取宿主机.env.development的DB_*变量
 docker compose --env-file .env.development -f docker-compose.develop.yml up -d
-npm run db:init
+npm run db:init:dev
 npm run dev          # 或只启服务端：npm run dev:server
 
 # ---- 2. 本地全容器模拟生产（完整容器环境、本地构建镜像）----
@@ -113,7 +113,7 @@ docker inspect ${POD_NAME} -f '{{range .Config.Env}}{{.}}{{"\n"}}{{end}}'
 
 | 场景 | 用哪个文件 | 命令 | Node 位置 | DB/Redis 访问地址 | db:init 时机 |
 |---|---|---|---|---|---|
-| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `--env-file .env.development up -d` → `db:init` → `npm run dev` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）| 中间件起来后、dev 前（宿主机执行） |
+| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `--env-file .env.development up -d` → `db:init:dev` → `npm run dev` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）| 中间件起来后、dev 前（宿主机执行） |
 | 本地全容器模拟生产 | `docker-compose.yml` + `-f docker-compose.local.yml` | `up -d --build` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
 | 验证已 push 镜像 | `docker-compose.yml` + `-f docker-compose.test.yml` | `up -d` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
 | 停止 local / test 栈 | base+local 或 base+test（与启动时一致） | `down` | — | — | 不需要 |

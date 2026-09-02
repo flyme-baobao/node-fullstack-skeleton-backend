@@ -24,6 +24,24 @@
     <div id="toast-slot" aria-live="polite"
         class="pointer-events-none fixed top-4 right-4 z-[60] flex flex-col items-end gap-2">
     </div>
+    <!-- 浏览器时区 cookie：必须在任何请求发出前写入。
+         经典内联脚本同步执行，先于模块脚本（defer 语义）与 DOMContentLoaded，
+         首个 SSR 请求（bootstrap 首屏导航）必已带上 cookie；首屏加载本身由 src/bootstrap.ts 负责，此处不重复触发。 -->
+    <script>
+        (function () {
+            var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            let cookieParts = [
+                `browser_tz=${encodeURIComponent(tz)}`,
+                "path=/",
+                "max‑age=31536000",
+                "SameSite=Lax"
+            ];
+            if (location.protocol === "https:") {
+                cookieParts.push("Secure");
+            }
+            document.cookie = cookieParts.join("; ");
+        })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
     <!-- 纯 SPA（静态 shell，无服务端 EJS）：语言包不再由本文件注入。
          首屏由 main.ts 调 GET /api/i18n 拉取当前语言包 → window.I18n；

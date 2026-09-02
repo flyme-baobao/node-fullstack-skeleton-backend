@@ -185,31 +185,34 @@ npm run build:client     # 仅构建前端产物到 dist-client/（js/main.js + 
 npm run build:client:dev # 同上，但用 --mode development 构建，产物带 sourcemap 便于调试
 npm run build:server     # 编译后端到 dist-server/（tsc + 拷贝 .ejs/.json 等静态资源）
 npm run build:all        # 前后端一起构建（build:server && build:client）
-npm run db:init          # 连接 PostgreSQL 执行 db/sql/init.sql 幂等建表（首次 / 改表后执行）
+npm run db:init:dev      # 建表（本地开发）：NODE_ENV=development 强制读 .env.development，与 npm run dev 同环境
+npm run db:init          # 建表（通用）：跟随 NODE_ENV——非生产自动读 .env.development；生产容器内用注入的 DATABASE_URL
 npm test                 # 运行测试
 ```
 
 ### 数据库命令用途（原生 SQL，无 ORM）
 
-- `npm run db:init`：连接数据库执行 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，幂等建表（`CREATE TABLE IF NOT EXISTS` 兜底），只补缺失对象、不动已有数据，可重复执行。
-- 非 production 环境自动读取 [.env.development](.env.development) 取连接参数（`DATABASE_URL` 或 `DB_*` 分量拼装），生产环境以进程注入的环境变量为准。
+两个命令执行同一个脚本 [scripts/db-init.js](scripts/db-init.js)：连接数据库执行 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，幂等建表（`CREATE TABLE IF NOT EXISTS` 兜底），只补缺失对象、不动已有数据，可重复执行。
+
+- `npm run db:init:dev`：本地开发专用。显式 `NODE_ENV=development`，强制读取 [.env.development](.env.development) 取连接参数（`DATABASE_URL` 或 `DB_*` 分量拼装），与 `npm run dev` 同环境，不受终端残留 `NODE_ENV` 影响。
+- `npm run db:init`：通用形式。跟随当前 `NODE_ENV`——非生产自动读 `.env.development`；生产（容器内 `NODE_ENV=production`）不读任何 `.env` 文件，直接用 compose 注入的 `DATABASE_URL`。
 
 ### 本地开发启动顺序
 
 如果走的是“宿主机跑 Node，Docker 只起中间件”的开发模式，推荐顺序如下：
 
-1. `docker compose -f docker-compose.develop.yml up -d`
-2. 首次启动（或 init.sql 有新增建表语句）时执行一次 `npm run db:init`
+1. `docker compose --env-file .env.development -f docker-compose.develop.yml up -d`
+2. 首次启动（或 init.sql 有新增建表语句）时执行一次 `npm run db:init:dev`
 3. 启动应用：通常直接执行 `npm run dev`；如果只调后端，则执行 `npm run dev:server`
 
 可以按场景理解：
 
-- **改了表结构**：先起 Postgres / Redis，把变更同步进 [server/src/db/sql/init.sql](server/src/db/sql/init.sql) 后执行 `npm run db:init`，再执行 `npm run dev`
+- **改了表结构**：先起 Postgres / Redis，把变更同步进 [server/src/db/sql/init.sql](server/src/db/sql/init.sql) 后执行 `npm run db:init:dev`，再执行 `npm run dev`
 - **没改表结构**：起完 Postgres / Redis 后，通常直接执行 `npm run dev` 即可
 
 推荐顺序：
 
-- 本地开发改表结构：先修改 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，再执行 `npm run db:init`（幂等，可重复执行）
+- 本地开发改表结构：先修改 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，再执行 `npm run db:init:dev`（幂等，可重复执行）
 - 生产发布：数据库就绪后执行 `npm run db:init`（幂等），再启动新版本服务
 
 更完整的原理与执行顺序说明见 [docs/db-workflow.md](docs/db-workflow.md)。

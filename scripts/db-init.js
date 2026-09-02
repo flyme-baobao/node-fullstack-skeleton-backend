@@ -1,6 +1,6 @@
 // 数据库初始化脚本（db-init.js）：用原生 pg 驱动执行 server/src/db/sql/init.sql 建表。
 // 定位：无迁移工具下的最小可行方案——init.sql 全部 IF NOT EXISTS，幂等可重复执行，只建缺失对象、不动已有数据。
-// 用法：npm run db:init
+// 用法：npm run db:init:dev（本地开发，显式 NODE_ENV=development）/ npm run db:init（通用，跟随 NODE_ENV）
 // 环境变量策略与 server/src/index.ts 保持一致：非生产读 .env.development（文件优先），生产以进程环境为准。
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -20,15 +20,15 @@ if (process.env.NODE_ENV !== 'production') {
     }
 }
 
-// 连接串拼装：与 server/src/db/db.config.ts 的 buildConnectionString 保持同一规则
-// （DATABASE_URL 残留 "${" 说明是 dotenv 未展开的嵌套引用字面量，忽略并走 DB_* 分量兜底，避免 pg Invalid URL）
+const SESSION_TZ_QUERY = `?options=${encodeURIComponent('-c timezone=UTC')}`;
+
 function buildConnectionString() {
     const url = process.env.DATABASE_URL;
-    if (url && !url.includes('${')) return url;
+    if (url) return url.includes('options=') ? url : `${url}${SESSION_TZ_QUERY}`;
     const { DB_USER, DB_PASSWORD, DB_HOST, DB_NAME } = process.env;
     if (!DB_USER || !DB_PASSWORD || !DB_HOST || !DB_NAME) return undefined;
     const port = process.env.DB_PORT ?? '5432';
-    return `postgresql://${encodeURIComponent(DB_USER)}:${encodeURIComponent(DB_PASSWORD)}@${DB_HOST}:${port}/${encodeURIComponent(DB_NAME)}`;
+    return `postgresql://${encodeURIComponent(DB_USER)}:${encodeURIComponent(DB_PASSWORD)}@${DB_HOST}:${port}/${encodeURIComponent(DB_NAME)}${SESSION_TZ_QUERY}`;
 }
 
 const connectionString = buildConnectionString();

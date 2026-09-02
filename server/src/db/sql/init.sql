@@ -2,6 +2,9 @@
 -- 数据库初始化脚本（原生 SQL）
 -- 执行方式：npm run db:init（内部用 pg 驱动执行本文件，幂等可重复执行）
 -- 约定：只建缺失的表/类型/索引，不动已有数据（IF NOT EXISTS 语义）
+-- 时区约定：时间列一律 TIMESTAMPTZ（存绝对时刻）+ 连接串 options=-c timezone=UTC
+--          锁会话时区 UTC，存储口径与时区解耦；展示由 SSR（browser_tz cookie）/
+--          前端 Intl 按用户时区格式化，见 server/src/utils/userTime.ts
 -- ============================================================
 
 -- 待办表
@@ -9,8 +12,8 @@ CREATE TABLE IF NOT EXISTS todos (
     id          SERIAL PRIMARY KEY,
     text        VARCHAR(280) NOT NULL,
     done        BOOLEAN NOT NULL DEFAULT false,
-    created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP(3) NOT NULL,
+    created_at  TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ(3) NOT NULL,
     is_deleted  BOOLEAN NOT NULL DEFAULT false
 );
 
@@ -30,8 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number   VARCHAR(32),
     password_hash  VARCHAR(255),
     status         "UserStatus" NOT NULL DEFAULT 'ACTIVE',
-    created_at     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMP(3) NOT NULL
+    created_at     TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMPTZ(3) NOT NULL
 );
 
 -- 唯一索引
