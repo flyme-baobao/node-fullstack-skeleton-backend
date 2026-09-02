@@ -28,12 +28,6 @@ COPY server ./server
 COPY client ./client
 COPY scripts ./scripts
 
-# ==========【builder阶段：第一处 db:generate】==========
-RUN npm run db:generate
-# 读取镜像内复制进来的 schema.prisma，生成 @prisma/client，放在 builder 的 node_modules
-# 👉作用：build:server TS编译的时候，TS可以识别到PrismaClient的类型，编译不会报找不到类型
-# ======================================================
-
 # 编译后端 + 构建前端（产出 dist-server 与 dist-client）。
 RUN npm run build:server
 # MODE 由构建时注入（docker build --build-arg MODE=… / compose build.args）：
@@ -57,8 +51,6 @@ ENV NODE_ENV=production
 # 只拷贝运行清单并安装运行时依赖（不含 dev），供后端 import express/ejs/i18next 等使用
 COPY package*.json ./
 RUN npm ci --omit=dev
-# 运行阶段不再安装 prisma CLI；直接复用 builder 阶段按当前 schema 生成好的 Prisma Client 产物。
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # 后端编译产物（含被 build-server.js 拷入的 views 静态资源）
 COPY --from=builder /app/dist-server ./dist-server
 # 前端构建产物（index.html/js/css），供后端 express.static(dist-client) 静态托管

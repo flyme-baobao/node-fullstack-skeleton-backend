@@ -38,13 +38,11 @@ project-root/                           # 当前仓库根目录（占位名，�
 │  │  │  └─ locale.controller.ts      #   语言切换（/api/change-language）
 │  │  ├─ service/                    # 业务服务层
 │  │  │  └─ todo.service.ts
-│  │  ├─ repository/                 # 纯业务数据 CRUD 封装（读写 data/todos.json）
+│  │  ├─ repository/                 # 纯业务数据 CRUD 封装（原生 pg 参数化 SQL 直连 PostgreSQL）
 │  │  │  └─ todo.repository.ts
-│  │  ├─ db/                         # 后端数据库底层基建目录（预留骨架，未接入）
-│  │  │  ├─ prisma/                 # Prisma 专属目录
-│  │  │  │  ├─ schema.prisma         #   数据表模型、关联关系、数据源配置
-│  │  │  │  └─ migrations/           #   版本迁移脚本集合
-│  │  │  ├─ index.ts                # 数据库主实例初始化、连接池统一管理
+│  │  ├─ db/                         # 后端数据库底层基建目录（原生 node-pg 驱动，无 ORM）
+│  │  │  ├─ sql/init.sql            #   建表 DDL（幂等，npm run db:init 执行）
+│  │  │  ├─ index.ts                # pg 连接池初始化、统一出口（connect / disconnect）
 │  │  │  ├─ redis.ts                # Redis 底层连接与配置
 │  │  │  └─ db.config.ts            # 数据库全局参数配置
 │  │  ├─ dto/                        # 数据传输对象
@@ -80,7 +78,6 @@ project-root/                           # 当前仓库根目录（占位名，�
 │  │  │  ├─ pages/                  #   业务页面（index.ejs / listPage.ejs）
 │  │  │  └─ partials/               #   公共片段（item.ejs / list.ejs）
 │  │  └─ 根文件：app.ts / index.ts / constants.ts / paths.ts / views.ts / express.d.ts
-│  └─ data/todos.json                # 待办数据持久化文件
 ├─ client/                           # 前端源码：html / Sass / TS / 组件
 │  ├─ index.html                     # Vite SPA 入口壳（提供 html/head 全局壳）
 │  ├─ vite.config.ts                 # Vite 构建 / 代理配置（读 vite.constants.ts / vite.utils.ts）
@@ -113,8 +110,6 @@ project-root/                           # 当前仓库根目录（占位名，�
 │     │  ├─ logger.ts              #   前端日志工具
 │     │  └─ escapeHtml.ts          #   HTML 转义（防 XSS 注入，支持 i18n 兜底）
 │     └─ main.scss / tailwind.css   # 样式入口
-├─ data/                             # 本地持久化数据（已 gitignore，不入库）
-│  └─ todos.json
 ├─ test/                             # 测试
 │  └─ routes/home.test.ts
 ├─ docs/                             # 文档
@@ -136,7 +131,7 @@ project-root/                           # 当前仓库根目录（占位名，�
 └─ CI/CD 相关目录（.github / .gitee / .yunxiao / .workflow）
 ```
 
-> 💡 **数据库目录说明**：`server/src/db/`（含 `prisma/`、`index.ts`、`redis.ts`、`db.config.ts`）目前是**预留的基础模板骨架**，尚未接入真实数据库。当前待办数据仍走 JSON 文件存储（`repository/todo.repository.ts` 读写 `data/todos.json`）；上述骨架不导入任何业务代码、不进入启动链路，`typecheck` 零副作用，待接入 PostgreSQL / Redis 时按配置内注释填充即可。
+> 💡 **数据库目录说明**：`server/src/db/`（含 `sql/init.sql`、`index.ts`、`redis.ts`、`db.config.ts`）已接入 PostgreSQL：使用**原生 node-pg 驱动**（无 ORM），`db/index.ts` 创建全局唯一连接池，`repository/todo.repository.ts` 直接书写参数化 SQL（`$1` 占位符防注入）；表结构由 `db/sql/init.sql` 定义，执行 `npm run db:init` 幂等建表，原理与改表约定见 [docs/db-workflow.md](docs/db-workflow.md)。
 
 ## 启动方式（双端口，env 驱动）
 
@@ -190,42 +185,34 @@ npm run build:client     # 仅构建前端产物到 dist-client/（js/main.js + 
 npm run build:client:dev # 同上，但用 --mode development 构建，产物带 sourcemap 便于调试
 npm run build:server     # 编译后端到 dist-server/（tsc + 拷贝 .ejs/.json 等静态资源）
 npm run build:all        # 前后端一起构建（build:server && build:client）
-npm run db:generate      # 通用：按 schema.prisma 生成 Prisma Client，不绑开发环境文件
-npm run db:generate:dev  # 本地开发：固定读取 .env.development 生成 Prisma Client
-npm run db:migrate:dev   # 开发环境：根据 schema 变化生成并执行 migration
-npm run db:migrate:deploy # 生产/部署环境：只执行仓库里已有的 migration，不创建新 migration
+npm run db:init          # 连接 PostgreSQL 执行 db/sql/init.sql 幂等建表（首次 / 改表后执行）
 npm test                 # 运行测试
 ```
 
-### Prisma 命令用途
+### 数据库命令用途（原生 SQL，无 ORM）
 
-- `npm run db:generate`：通用生成命令，只负责按 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 生成 Prisma Client 与类型，不改数据库表结构。
-- `npm run db:generate:dev`：本地开发专用生成命令，固定读取 [.env.development](.env.development) 执行 generate，适合单独刷新 Prisma Client。
-- `npm run db:migrate:dev`：开发环境命令，生成并执行 migration，把 schema 变更真正落到开发数据库。
-- `npm run db:migrate:deploy`：生产/部署命令，只执行仓库里已提交的 migration，不在部署现场创建新 migration。
+- `npm run db:init`：连接数据库执行 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，幂等建表（`CREATE TABLE IF NOT EXISTS` 兜底），只补缺失对象、不动已有数据，可重复执行。
+- 非 production 环境自动读取 [.env.development](.env.development) 取连接参数（`DATABASE_URL` 或 `DB_*` 分量拼装），生产环境以进程注入的环境变量为准。
 
 ### 本地开发启动顺序
 
 如果走的是“宿主机跑 Node，Docker 只起中间件”的开发模式，推荐顺序如下：
 
 1. `docker compose -f docker-compose.develop.yml up -d`
-2. 如果这次改了 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 里的表结构，再执行 `npm run db:migrate:dev`
+2. 首次启动（或 init.sql 有新增建表语句）时执行一次 `npm run db:init`
 3. 启动应用：通常直接执行 `npm run dev`；如果只调后端，则执行 `npm run dev:server`
 
 可以按场景理解：
 
-- **改了表结构**：先起 Postgres / Redis，再跑 `npm run db:migrate:dev`，最后执行 `npm run dev`
+- **改了表结构**：先起 Postgres / Redis，把变更同步进 [server/src/db/sql/init.sql](server/src/db/sql/init.sql) 后执行 `npm run db:init`，再执行 `npm run dev`
 - **没改表结构**：起完 Postgres / Redis 后，通常直接执行 `npm run dev` 即可
-- **只刷新 Prisma Client / 类型**：不跑 migration，改为执行 `npm run db:generate:dev`
 
 推荐顺序：
 
-- 本地开发改表结构：修改 [server/src/db/prisma/schema.prisma](server/src/db/prisma/schema.prisma) 后直接执行 `npm run db:migrate:dev`
-- 本地只刷新 Prisma Client：执行 `npm run db:generate:dev`
-- CI / 镜像构建：执行 `npm run db:generate`
-- 生产发布：数据库就绪后执行 `npm run db:migrate:deploy`，再启动新版本服务
+- 本地开发改表结构：先修改 [server/src/db/sql/init.sql](server/src/db/sql/init.sql)，再执行 `npm run db:init`（幂等，可重复执行）
+- 生产发布：数据库就绪后执行 `npm run db:init`（幂等），再启动新版本服务
 
-更完整的原理与执行顺序说明见 [docs/prisma-workflow.md](docs/prisma-workflow.md)。
+更完整的原理与执行顺序说明见 [docs/db-workflow.md](docs/db-workflow.md)。
 
 > `npm run dev` 由 `concurrently -k` 并发拉起两个进程；其中 `dev:client` 用 `scripts/dev-client.js`（而非 shell 变量，兼顾 Windows）加载 `.env` 并轮询等待后端端口就绪，因此**严格先起 server 再起 client**。开发时浏览器访问 **http://localhost:${VITE_PORT}**；Express 由 `node --watch-path=server/src` 在后端源码变更时自行重启，Vite 由自己的 dev server 做前端热更。
 ### Docker 构建时动态注入 mode

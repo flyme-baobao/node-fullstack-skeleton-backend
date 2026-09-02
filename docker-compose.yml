@@ -26,7 +26,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       SERVER_PORT: ${SERVER_PORT}
       TZ: ${TZ:-Asia/Shanghai}
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
       REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/0
       DB_POOL_MAX: ${DB_POOL_MAX}
       DB_IDLE_TIMEOUT_MS: ${DB_IDLE_TIMEOUT_MS}
