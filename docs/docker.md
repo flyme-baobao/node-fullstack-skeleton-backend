@@ -51,9 +51,13 @@ docker compose --env-file .env up -d
 
 ```bash
 # ---- 1. 纯开发模式（本机跑 Node、Docker 仅启动中间件）----
-# 适用：日常业务开发、热更新调试、无需容器打包
-# 启动 Postgres + Redis 两个中间件容器
+# 适用：日常业务开发、热更新调试，无需容器打包
+# 固定三步顺序不可乱：①启动PG+Redis中间件 ②执行db:init（首次/改表执行，脚本幂等）③启动本机Node；
+# ⚠️②必须在③之前，否则服务启动探测连通但无表，业务请求500；①必须早于②，中间件未就绪db:init直接报错；
+# DB_HOST统一使用.env.development的127.0.0.1；非生产NODE_ENV自动读取宿主机.env.development的DB_*变量
 docker compose -f docker-compose.develop.yml up -d
+npm run db:init
+npm run dev          # 或只启服务端：npm run dev:server
 
 # ---- 2. 本地全容器模拟生产（完整容器环境、本地构建镜像）----
 #    适用：上线前本地全量自测、复现线上生产环境
@@ -62,13 +66,21 @@ docker compose -f docker-compose.develop.yml up -d
 #    fullstack-app 从“CI 预构建镜像”覆盖为“本地 Dockerfile 构建”。
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
-#     默认按生产 mode 构建（vite build 无 sourcemap）。
+#     默认按生产 mode 构建（vite build 无 sourcemap）；
 #     需要带调试信息（sourcemap）时，临时注入 MODE 构建参数：
 MODE=development docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# ⚠️必须带--build，否则复用旧镜像，不会重新构建Dockerfile，出现代码修改不生效；
+# --build仅生成镜像，建表是运行时操作；首次部署/down‑v重置数据卷/修改init.sql后容器内执行db:init，幂等，普通up/down无需重复执行；
+# 容器NODE_ENV=production，不读取.env，使用compose注入DATABASE_URL，以服务名postgres访问数据库
+docker compose -f docker-compose.yml -f docker-compose.local.yml exec -T fullstack-app npm run db:init
 
-#     ⚠️ 务必保留 `--build`：`up` 不带 --build 会**直接复用本地已有的 image tag（如
-#     node-fullstack-skeleton:local）**，不重新走 Dockerfile 构建，改了 Dockerfile 却不
-#     带 --build 就会用到旧镜像（“改了没生效”的常见坑）。带 --build 才保证每次重建。
+# 备选方案：up -d --build 之后发现 app 容器崩溃/退出、exec 无法进入时，run --rm 起临时容器执行
+#（同一镜像同一环境变量，跑完自动删除）。前置：镜像必须先构建好（上面 up -d --build 已完成）。
+# compose run 默认就不发布端口，不会与 app 的 3000 冲突，无需额外旗标；
+# 若担心误启依赖可加 --no-deps（db:init 需连库，通常保持默认让 compose 自动带上 postgres/redis）
+docker compose -f docker-compose.yml -f docker-compose.local.yml run --rm fullstack-app npm run db:init
+# 建表完成之后，再重新拉起业务app
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d fullstack-app
 
 # ---- 3. 本地验证「已 push 的镜像」（拉取测试，不重新构建）----
 # 适用：验证 CI 构建推送的镜像能否在本地整套跑起来（不改代码，纯验证镜像可用性）
@@ -94,13 +106,13 @@ docker inspect ${POD_NAME} -f '{{range .Config.Env}}{{.}}{{"\n"}}{{end}}'
 
 ### 场景速查表
 
-| 场景 | 用哪个文件 | 命令 | Node 位置 | DB/Redis 访问地址 |
-|---|---|---|---|---|
-| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `up -d` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）|
-| 本地全容器模拟生产 | `docker-compose.yml` + `-f docker-compose.local.yml` | `up -d --build` | 容器 | `postgres` / `redis`（服务名）|
-| 验证已 push 镜像 | `docker-compose.yml` + `-f docker-compose.test.yml` | `up -d` | 容器 | `postgres` / `redis`（服务名）|
-| 停止 local / test 栈 | base+local 或 base+test（与启动时一致） | `down` | — | — |
-| 重置数据 | base+local 或 base+test（与启动时一致） | `down -v` | — | — |
+| 场景 | 用哪个文件 | 命令 | Node 位置 | DB/Redis 访问地址 | db:init 时机 |
+|---|---|---|---|---|---|
+| 日常开发（本机跑 Node） | `docker-compose.develop.yml` | `up -d` → `db:init` → `npm run dev` | 宿主机 | `127.0.0.1`（须在 Node 侧适配）| 中间件起来后、dev 前（宿主机执行） |
+| 本地全容器模拟生产 | `docker-compose.yml` + `-f docker-compose.local.yml` | `up -d --build` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
+| 验证已 push 镜像 | `docker-compose.yml` + `-f docker-compose.test.yml` | `up -d` → `exec db:init` | 容器 | `postgres` / `redis`（服务名）| 首次起栈后（容器内执行） |
+| 停止 local / test 栈 | base+local 或 base+test（与启动时一致） | `down` | — | — | 不需要 |
+| 重置数据 | base+local 或 base+test（与启动时一致） | `down -v` | — | — | 重启后需重跑（数据卷已清空） |
 
 > ⚠️ `docker-compose.develop.yml` 只有 Postgres + Redis；此时 Node 跑在宿主机，`.env` 里的 `DB_HOST` / `REDIS_HOST` 需为 `127.0.0.1` 并经 Node 侧适配，容器模式才用服务名 `postgres`/`redis`。
 

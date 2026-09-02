@@ -55,6 +55,11 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist-server ./dist-server
 # 前端构建产物（index.html/js/css），供后端 express.static(dist-client) 静态托管
 COPY --from=builder /app/dist-client ./dist-client
+# db:init 依赖的两份文件：初始化脚本 + 建表 DDL。
+# 生产部署流程：docker compose up -d → docker compose exec -T fullstack-app npm run db:init。
+# db-init.js 以自身路径向上回溯定位 server/src/db/sql/init.sql，两层目录结构必须保持一致。
+COPY scripts/db-init.js ./scripts/db-init.js
+COPY server/src/db/sql ./server/src/db/sql
 # 待办持久化数据目录（server.dataDir 默认指向项目根下 data）
 # 必须 chown 给 node（uid 1000）：下面会切 USER node 以非 root 运行，若不授权，
 # node 用户对 root 属主的 data 目录没有写权限，落盘 todos.json 会抛 EACCES。

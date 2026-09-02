@@ -25,8 +25,52 @@
   `CREATE TABLE IF NOT EXISTS`（枚举类型用 `DO $$ ... duplicate_object` 兜底），**幂等可重复执行**。
 - 执行：`npm run db:init`（`scripts/db-init.js`，非生产自动读 `.env.development`）。
 - 执行时机：
-  - 本地：首次起库后执行一次；之后**修改过 init.sql**（新增表/列/索引）再执行；
-  - 生产：数据库就绪后、启动新版本服务前执行（幂等，重复执行安全）。
+
+| 场景 | 时机 | 说明 |
+|------|------|------|
+| 本地首次搭库 | 新建 dev 数据库容器/数据卷后跑一次 | 建出全部表、枚举、索引 |
+| 新同事拉代码 | 起好数据库容器后跑一次 | 配合 `.env.development` 即可跑通 |
+| 修改了 init.sql | 改完 DDL 后重跑 | 幂等，只补缺失对象，不动已有数据 |
+| 生产首次部署 | 数据库就绪后、启动新版本服务前 | 在 app 容器内执行一次 |
+| 生产数据卷清空/换库 | 重新执行一次 | 重建全部结构 |
+
+> 不需要每次启动都跑：服务启动只做 `connectDatabase()` 连接探测，不执行任何 DDL；
+> 重复执行也无害，只是白白发一遍 SQL。
+
+**生产部署中的插入位置**（对应 [ci-cd-yunxiao.md](ci-cd-yunxiao.md) 的 `deploy_to_ecs`）：
+
+```bash
+# 1. 拉起全部容器后台运行
+docker compose up -d
+
+# 2. 等待 postgres 服务就绪
+#    ⚠️ 通用坑：wait-for-it 写在 exec app 里的前提是 app 容器已经启动成功——
+#    若 app 启动即 connectDatabase() 而数据库未就绪，app 会崩溃退出，
+#    容器挂掉后 docker compose exec <app> 报 no such container。
+#    本仓库不受此坑影响：compose 给 fullstack-app 配了
+#    depends_on: postgres/redis condition: service_healthy（pg_isready / redis ping 探测），
+#    中间件未就绪 fullstack-app 根本不会被拉起，up -d 返回时 app 必已存在，exec 必能进入。
+#    想显式等待用 compose 自带参数（等所有服务 healthy，无需镜像里装任何等待工具）：
+docker compose up -d --wait
+
+# 3. 执行建表初始化脚本（在 app 容器内执行，复用容器环境变量 DATABASE_URL）
+docker compose exec -T fullstack-app npm run db:init
+
+```
+详见  [docker.md](docker.md)
+
+要点：
+- 服务名是 `fullstack-app`（compose services 定义名），不是 `app`；
+- `npx wait-for-it` 在本镜像不可行：wait-for-it 是 shell 脚本不是 npm 依赖，运行镜像
+  `npm ci --omit=dev` 只装 dependencies，npx 现场下载在生产网络下不可靠；
+- 更稳的执行方式（不依赖 app 进程存活，app 崩溃/重启中也能跑，天然规避第 2 步的坑）：
+  `docker compose run --rm fullstack-app npm run db:init`（临时容器，同一镜像与环境）；
+- ⚠️ 容器内能跑 db:init 的前提：Dockerfile 运行阶段已拷入 `scripts/db-init.js` 与
+  `server/src/db/sql/init.sql`（运行镜像只重建 dependencies + dist 产物，缺文件会报
+  MODULE_NOT_FOUND）；生产 `NODE_ENV=production` 不读 .env，直接用 compose 注入的 `DATABASE_URL`；
+- 启动探测只 `SELECT 1`：没建表 app 也能启动成功，但首个业务请求 500 ——
+  db:init 必须在对外提供服务前执行完；
+- `db-init.js` 幂等，每次部署都执行也安全，通常首建库/改表后跑。
 
 ### 改表结构的约定（无自动 diff，需人工同步）
 
