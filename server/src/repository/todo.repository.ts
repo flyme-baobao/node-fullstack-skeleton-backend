@@ -4,18 +4,33 @@ import { HttpError } from '../middleware/error.middleware.js';
 import { ERROR_CODES } from '../i18n/error-codes.js';
 import type { QueryResult, QueryResultRow } from 'pg';
 
-/** 待办实体 */
-export interface TodoItem {
+/** TodoRow 与 TodoItem 的公共字段：字段名、类型完全一致，才值得上提；各自独有字段由两侧补充 */
+interface TodoBase {
     id: number;
     text: string;
     done: boolean;
 }
 
-/** todos 表行形状（与 db/sql/init.sql 建表列对应；业务只取这三个字段） */
-interface TodoRow {
-    id: number;
-    text: string;
-    done: boolean;
+/** 待办实体（对外契约，camelCase；时间字段为 Date，展示层格式化见 utils/userTime.ts） */
+export interface TodoItem extends TodoBase {
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+/** todos 表行形状 = 本文件 SQL 投影（SELECT/RETURNING 的列）；pg 按数据库列名返回 key，故为 snake_case */
+interface TodoRow extends TodoBase {
+    created_at: Date;
+    updated_at: Date;
+}
+
+/** 行 → 实体：snake_case 列名收敛为 camelCase 对外字段（TodoRow 与 TodoItem 的转换边界） */
+function toItem(row: TodoRow): TodoItem {
+    const { created_at, updated_at, ...res } = row;
+    return {
+        ...res,
+        createdAt: created_at,
+        updatedAt: updated_at,
+    };
 }
 
 /** 慢查询阈值（毫秒）：超过记 warn（生产也输出），DB_SLOW_LOG_MS 可覆盖。 */
@@ -60,12 +75,12 @@ async function queryWithLog<T extends QueryResultRow>(op: string, sql: string, p
 export async function list(): Promise<TodoItem[]> {
     const { rows } = await queryWithLog<TodoRow>(
         'todo.list',
-        `SELECT id, text, done
+        `SELECT id, text, done, created_at, updated_at
            FROM todos
           WHERE is_deleted = false
           ORDER BY id DESC`,
     );
-    return rows;
+    return rows.map(toItem);
 }
 
 /** 新增：返回新条目（updated_at 无表默认值须显式 now()；created_at 走表默认 CURRENT_TIMESTAMP）。 */
@@ -74,10 +89,10 @@ export async function create(text: string): Promise<TodoItem> {
         'todo.create',
         `INSERT INTO todos (text, updated_at)
          VALUES ($1, now())
-         RETURNING id, text, done`,
+         RETURNING id, text, done, created_at, updated_at`,
         [text],
     );
-    return rows[0];
+    return toItem(rows[0]);
 }
 
 /**
@@ -93,10 +108,10 @@ export async function toggle(id: number): Promise<TodoItem | undefined> {
                 updated_at = now()
           WHERE id = $1
             AND is_deleted = false
-         RETURNING id, text, done`,
+         RETURNING id, text, done, created_at, updated_at`,
         [id],
     );
-    return rows[0];
+    return rows[0] ? toItem(rows[0]) : undefined;
 }
 
 /** 删除：软删，返回是否删到了（rowCount 命中行数，找不到 false）。 */

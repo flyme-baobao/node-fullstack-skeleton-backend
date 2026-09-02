@@ -1,6 +1,14 @@
 // src/adapter/webCtx.ts
 import type { Request, Response, CookieOptions } from 'express';
 import type { RenderPageOptions } from '../types/render.js';
+export type UserContext = {
+  /** 用户语言区域，如 zh‑CN / en‑US */
+  userLocale: string;
+  /** IANA 时区标识符，如 Asia/Shanghai、Etc/UTC */
+  userTimeZone: string;
+  /** 当前登录用户id，未登录可为 undefined */
+  userId?: number;
+};
 
 /**
  * 标准化 Web 上下文（WebContext）。
@@ -23,6 +31,7 @@ export type WebContext = {
     body: any;
     /** 请求级共享变量（对应 res.locals，如 currentLocale） */
     locals: Record<string, any>;
+    userContext: UserContext;
 
     // ---- 响应侧 ----
     /**
@@ -63,7 +72,11 @@ export function createWebCtx(req: Request, res: Response): WebContext {
         query: req.query as Record<string, string | string[]>,
         body: req.body,
         locals: res.locals,
-
+        userContext: {
+            userLocale: req.userLocale,
+            userTimeZone: req.userTimeZone,
+            userId: req.userId,
+        },
         status: (code) => {
             statusCode = code;
             return ctx;

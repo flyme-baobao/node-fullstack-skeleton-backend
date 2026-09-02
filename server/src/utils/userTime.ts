@@ -1,4 +1,5 @@
-import type { Request } from 'express';
+import { formatInTimeZone } from './timeFormat.js';
+import { UserContext } from '../adapter/webCtx.js';
 /**
  * SSR 用户时区时间格式化（userTime.ts）
  *
@@ -13,14 +14,15 @@ import type { Request } from 'express';
 
 /**
  * 按用户时区 + 语言格式化时间（controller 一行直取）。
+ * Intl 构造细节全部下沉 utils/timeFormat.ts，本函数只负责「用户上下文 → 参数」。
  * @param req  Express Request（userContext 中间件已挂 userTimeZone / userLocale）
  * @param date DB 取出的时间（pg 驱动已把 TIMESTAMPTZ 解成绝对时刻 Date）
  * @returns    如 zh-CN 用户看到 2026/9/2 14:30，en-US 用户看到 9/2/2026, 2:30 PM
  */
-export function formatUserDateTime(req: Request, date: Date): string {
-    return new Intl.DateTimeFormat(req.userLocale, {
-        timeZone: req.userTimeZone,
-        year: 'numeric', month: 'numeric', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    }).format(date);
+export function formatUserDateTime(userContext: UserContext, date: Date): string {
+    return formatInTimeZone({
+        locale: userContext.userLocale,
+        timeZone: userContext.userTimeZone,
+        date
+    })
 }

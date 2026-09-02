@@ -11,4 +11,8 @@ export interface CreateTodoDto {
 }
 
 /** 待办对外视图（渲染层消费；当前与实体一致，预留演进口） */
-export type TodoView = TodoItem;
+export type TodoView = TodoItem & {
+    /** 视图层可直接用的格式化时间（用户时区/语言） */
+    createTimeFormat: string;
+    modifyTimeFormat: string;
+};

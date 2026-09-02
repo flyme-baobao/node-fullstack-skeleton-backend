@@ -18,7 +18,8 @@
     "include": [
         "client/src",
         "server/src",
-        "test"
+        "test",
+        "index.d.ts"
     ],
     "exclude": [
         "server/src/legacy"

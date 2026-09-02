@@ -6,6 +6,7 @@
  *  - 结构化体现在「每行是一个 JSON 对象」，便于 grep 单个 requestId / 字段定位问题。
  *  - 若要升级（文件、轮转、按级别过滤），再低成本替换成本文件即可，不影响调用方。
  */
+import { formatInTimeZone, formatInTimeZoneParts } from './timeFormat.js';
 
 type LogMeta = Record<string, unknown>;
 
@@ -14,11 +15,11 @@ type LogMeta = Record<string, unknown>;
  * 本地时间的人类可读文案（供日志的 tsLocal 字段）。
  *
  * 目标格式：`2026-08-27 11:44:51 GMT+0800 (中国标准时间)`，一眼可读且带时区偏移+区名。
- * 日期部分用 `'sv-SE'`：默认恰是 `YYYY-MM-DD HH:mm:ss`，与 `ts`（ISO 8601）风格统一、
- * 可排序、易 grep。
- * 偏移 + 区名没有单一 Intl 选项一次给全，故拆两次：
- *  - 偏移：`en-US` + `timeZoneName:'longOffset'` → `GMT+08:00`，去掉冒号得 `GMT+0800`
- *  - 区名：`zh-CN` + `timeZoneName:'long'` → `中国标准时间`（英文环境给 China Standard Time）
+ * Intl 构造复用 utils/timeFormat.ts（formatInTimeZone / formatInTimeZoneParts），本函数只拼「参数 + 组装」：
+ *  - 日期部分：`sv-SE` 默认恰是 `YYYY-MM-DD HH:mm:ss`，与 `ts`（ISO 8601）风格统一、可排序、易 grep；
+ *  - 偏移 + 区名没有单一 Intl 选项一次给全，故拆两次：
+ *      - 偏移：`en-US` + `timeZoneName:'longOffset'` → `GMT+08:00`，去掉冒号得 `GMT+0800`
+ *      - 区名：`zh-CN` + `timeZoneName:'long'` → `中国标准时间`（英文环境给 China Standard Time）
  *
  * 注意：`.env` 里 `TZ` 只决定时区值（如 Asia/Shanghai）；时区名是中文还是英文由这里
  * 的 locale 决定，与 `TZ` 无关。
@@ -26,21 +27,23 @@ type LogMeta = Record<string, unknown>;
 function localTs(): string {
     const shellDefaultTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const tz = process.env.TZ || shellDefaultTZ;
-    const dateTimeFormat= new Intl.DateTimeFormat('sv-SE', {
+    const now = new Date();
+    const datePart = formatInTimeZone({
+        locale: 'sv-SE',
         timeZone: tz,
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false,
+        date: now,
     });
-    const datePart = dateTimeFormat.format(new Date());
-    const timeZonePart = (loc: string, tzName: 'longOffset' | 'long'): string => {
-        const part = new Intl.DateTimeFormat(loc, { timeZone: tz, timeZoneName: tzName })
-            .formatToParts(new Date())
-            .find((p) => p.type === 'timeZoneName');
+    const pickTimeZoneName = (locale: string, name: 'longOffset' | 'long'): string => {
+        const part = formatInTimeZoneParts({
+            locale,
+            timeZone: tz,
+            date: now,
+            options: { timeZoneName: name }
+        }).find((p) => p.type === 'timeZoneName');
         return part ? part.value : '';
     };
-    const offset = timeZonePart('en-US', 'longOffset').replace(':', '');      // GMT+0800
-    const zoneName = timeZonePart('zh-CN', 'long');                           // 中国标准时间
+    const offset = pickTimeZoneName('en-US', 'longOffset').replace(':', ''); // GMT+0800
+    const zoneName = pickTimeZoneName('zh-CN', 'long');                      // 中国标准时间
     return `${datePart} ${offset} (${zoneName})`;
 }
 const LOG_LEVELS = {

@@ -27,7 +27,8 @@ export async function listFragment(req: Request, res: Response): Promise<void> {
 
     await sleep(DB_LATENCY_MS); // 模拟数据库查询
 
-    ctx.render('partials/list', { todos: await todoService.listTodos() });
+    const todos = await todoService.listTodos(ctx.userContext);
+    ctx.render('partials/list', { todos });
 }
 
 /**
@@ -54,7 +55,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
         throw new HttpError({ ...ERROR_CODES.todo_empty });
     }
 
-    const newItem = await todoService.createTodo({ text });
+    const newItem = await todoService.createTodo(ctx.userContext, { text });
 
     await sleep(DB_LATENCY_MS); // 模拟数据库写入
 
@@ -64,9 +65,10 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
     }
 
     // 空 → 第一条：原来是空列表占位，必须整体替换才能去掉“暂无待办”
-    if (await todoService.countTodos() === 1) {
+    const todos = await todoService.listTodos(ctx.userContext);
+    if (todos.length=== 1) {
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="afterbegin"
-        ctx.render('partials/list', { todos: await todoService.listTodos() });
+        ctx.render('partials/list', { todos });
         return;
     }
 
@@ -80,7 +82,7 @@ export async function toggleTodo(req: Request, res: Response): Promise<void> {
     // 数据清洗：非法 id（非数字）直接抛 400，不查库
     const id = parseValidId(ctx);
 
-    const item = await todoService.toggleTodo(id);
+    const item = await todoService.toggleTodo(ctx.userContext, id);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库读写
 
@@ -99,7 +101,7 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     const id = parseValidId(ctx);
    
     // 校验 id 合法后删除；service 已把 status/code 拼进结果，controller 直接透传给 HttpError
-    const result = await todoService.removeTodo(id);
+    const result = await todoService.removeTodo(ctx.userContext, id);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库删除
 
@@ -111,11 +113,12 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
         });
     }
 
-    if (await todoService.countTodos() === 0) {
+    const todos = await todoService.listTodos(ctx.userContext);
+    if (todos.length === 0) {
         // 删光最后一条：留 `#todo-list` 的空白占位回来
         ctx.set('HX-Retarget', '#todo-list'); // 覆盖 closest .todo-item
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="delete"
-        ctx.render('partials/list', { todos: await todoService.listTodos() });
+        ctx.render('partials/list', { todos });
         return;
     }
     ctx.status(200).end();

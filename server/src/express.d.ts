@@ -27,6 +27,10 @@ declare global {
             userTimeZone: string;
             /** 用户语言（userContext 中间件代理 req.language，i18next 探测结果） */
             userLocale: string;
+            /**
+             * 当前登录用户id（userContext 中间件从 session / token / cookie 解析，未登录可为 undefined）
+             */
+            userId?: number;
         }
 
         interface Response {
