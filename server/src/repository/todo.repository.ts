@@ -1,4 +1,5 @@
 import { getPool } from '../db/index.js';
+import { loadSql } from '../utils/loadSql.js';
 import { logger } from '../utils/logger.js';
 import { HttpError } from '../middleware/error.middleware.js';
 import { ERROR_DEFS } from '../i18n/error-defs.js';
@@ -76,14 +77,12 @@ async function queryWithLog<T extends QueryResultRow>(op: string, sql: string, p
 
 /** 列表：只返回未删除数据，并保持“最新创建在前”的现有展示顺序。 */
 export async function list(): Promise<TodoItem[]> {
+    const sql = loadSql('todo/list.sql');
     const { rows } = await queryWithLog<TodoRow>(
         'todo.list',
         // SELECT 的投影就是列清单本身（RETURNING 只属于 INSERT/UPDATE/DELETE）；
         // id 仅出现在 ORDER BY，不进投影——内部主键不出对外契约
-        `SELECT uid, text, done, created_at, updated_at
-           FROM todos
-          WHERE is_deleted = false
-          ORDER BY id DESC`,
+        sql,
     );
     return rows.map(toItem);
 }

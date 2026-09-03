@@ -75,6 +75,10 @@
         "db_not_configured": "Database is not configured, please check environment variables",
         "db_connect_error": "Database connection failed, please check service status",
         "db_query_error": "Database operation failed, please try again later",
+        "db_sql_file_not_found": "Database SQL file not found, please check service status",
+        "db_sql_invalid_path": "Invalid SQL file path",
+        "db_sql_not_a_file": "SQL path does not point to a regular file, please check service status",
+        "db_io_error": "Failed to read database SQL file, please try again later",
         "bad_request": "Malformed request body",
         "not_found": "Resource not found",
         "internal_error": "Internal server error, please try again later"

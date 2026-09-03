@@ -29,19 +29,91 @@ export interface ErrorCodeDefinition {
 }
 
 export const ERROR_DEFS = {
-    todo_empty:        { code: BUSINESS_CODE.TODO_EMPTY,        message: 'errors.todo_empty',        status: HTTP_STATUS.BAD_REQUEST },
-    invalid_uid:       { code: BUSINESS_CODE.INVALID_UID,       message: 'errors.invalid_uid',       status: HTTP_STATUS.BAD_REQUEST },
-    unsupported_lang:  { code: BUSINESS_CODE.UNSUPPORTED_LANG,  message: 'errors.unsupported_lang',  status: HTTP_STATUS.BAD_REQUEST },
-    toggle_not_found:  { code: BUSINESS_CODE.TOGGLE_NOT_FOUND,  message: 'errors.toggle_not_found',  status: HTTP_STATUS.NOT_FOUND },
-    remove_not_found:  { code: BUSINESS_CODE.REMOVE_NOT_FOUND,  message: 'errors.remove_not_found',  status: HTTP_STATUS.NOT_FOUND },
-    create_failed:     { code: BUSINESS_CODE.CREATE_FAILED,     message: 'errors.create_failed',     status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
-    remove_failed:     { code: BUSINESS_CODE.REMOVE_FAILED,     message: 'errors.remove_failed',     status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
-    db_not_configured: { code: BUSINESS_CODE.DB_NOT_CONFIGURED, message: 'errors.db_not_configured', status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
-    db_connect_error:  { code: BUSINESS_CODE.DB_CONNECT_ERROR,  message: 'errors.db_connect_error',  status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
-    db_query_error:    { code: BUSINESS_CODE.DB_QUERY_ERROR,    message: 'errors.db_query_error',    status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
-    bad_request:       { code: BUSINESS_CODE.BAD_REQUEST,       message: 'errors.bad_request',       status: HTTP_STATUS.BAD_REQUEST },
-    not_found:         { code: BUSINESS_CODE.NOT_FOUND,         message: 'errors.not_found',         status: HTTP_STATUS.NOT_FOUND },
-    internal_error:    { code: BUSINESS_CODE.INTERNAL_ERROR,    message: 'errors.internal_error',    status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
+    todo_empty: {
+        code: BUSINESS_CODE.TODO_EMPTY,
+        message: 'errors.todo_empty',
+        status: HTTP_STATUS.BAD_REQUEST
+    },
+    invalid_uid: {
+        code: BUSINESS_CODE.INVALID_UID,
+        message: 'errors.invalid_uid',
+        status: HTTP_STATUS.BAD_REQUEST
+    },
+    unsupported_lang: {
+        code: BUSINESS_CODE.UNSUPPORTED_LANG,
+        message: 'errors.unsupported_lang',
+        status: HTTP_STATUS.BAD_REQUEST
+    },
+    toggle_not_found: {
+        code: BUSINESS_CODE.TOGGLE_NOT_FOUND,
+        message: 'errors.toggle_not_found',
+        status: HTTP_STATUS.NOT_FOUND
+    },
+    remove_not_found: {
+        code: BUSINESS_CODE.REMOVE_NOT_FOUND,
+        message: 'errors.remove_not_found',
+        status: HTTP_STATUS.NOT_FOUND
+    },
+    create_failed: {
+        code: BUSINESS_CODE.CREATE_FAILED,
+        message: 'errors.create_failed',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    remove_failed: {
+        code: BUSINESS_CODE.REMOVE_FAILED,
+        message: 'errors.remove_failed',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_not_configured: {
+        code: BUSINESS_CODE.DB_NOT_CONFIGURED,
+        message: 'errors.db_not_configured',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_connect_error: {
+        code: BUSINESS_CODE.DB_CONNECT_ERROR,
+        message: 'errors.db_connect_error',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_query_error: {
+        code: BUSINESS_CODE.DB_QUERY_ERROR,
+        message: 'errors.db_query_error',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_sql_file_not_found: {
+        code: BUSINESS_CODE.DB_SQL_FILE_NOT_FOUND,
+        message: 'errors.db_sql_file_not_found',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_sql_invalid_path: {
+        code: BUSINESS_CODE.DB_SQL_INVALID_PATH,
+        message: 'errors.db_sql_invalid_path',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_sql_not_a_file: {
+        code: BUSINESS_CODE.DB_SQL_NOT_A_FILE,
+        message: 'errors.db_sql_not_a_file',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    db_io_error: {
+        code: BUSINESS_CODE.DB_IO_ERROR,
+        message: 'errors.db_io_error',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    bad_request: {
+        code: BUSINESS_CODE.BAD_REQUEST,
+        message: 'errors.bad_request',
+        status: HTTP_STATUS.BAD_REQUEST
+    },
+    not_found: {
+        code: BUSINESS_CODE.NOT_FOUND,
+        message: 'errors.not_found',
+        status: HTTP_STATUS.NOT_FOUND
+    },
+    internal_error: {
+        code: BUSINESS_CODE.INTERNAL_ERROR,
+        message: 'errors.internal_error',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
 } as const satisfies Record<string, ErrorCodeDefinition & { code: BusinessCode }>;
 
 export type ErrorCodeName = keyof typeof ERROR_DEFS;
