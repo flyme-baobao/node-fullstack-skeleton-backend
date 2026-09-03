@@ -1,0 +1,1 @@
+SELECT COUNT(*)::int AS missing FROM __TABLE__ WHERE __WHERE_CLAUSE__

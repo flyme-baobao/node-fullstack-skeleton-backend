@@ -36,18 +36,34 @@ if (!connectionString) {
     console.error('[db:init] 数据库未配置：请设置 DATABASE_URL，或填写 DB_USER/DB_PASSWORD/DB_HOST/DB_NAME（.env.development）');
     process.exit(1);
 }
+const sqlDir = path.resolve(root, 'server', 'src', 'db', 'sql')
 
-const sqlPath = path.join(root, 'server', 'src', 'db', 'sql', 'init.sql');
-const sql = readFileSync(sqlPath, 'utf8');
+const loadSql = (filePath) => {
+    const sqlPath = path.resolve(sqlDir, filePath);
+    return readFileSync(sqlPath, 'utf8');
+}
+
+const initSql = loadSql('init.sql');
 
 const pool = new pg.Pool({ connectionString });
 try {
     // simple query 协议支持一次发送多条语句（init.sql 内含 DO $$ 块，必须走多语句执行）
-    await pool.query(sql);
+    await pool.query(initSql);
     console.log('[db:init] 数据库结构就绪（init.sql 执行成功）');
 } catch (err) {
     console.error('[db:init] 执行失败：', err instanceof Error ? err.message : String(err));
     process.exit(1);
+}
+
+/**
+ * 模板字符串替换，仅用于迁移脚本，所有变量均为代码内置常量，无用户输入，无注入风险
+ */
+function renderSql(template, vars) {
+  let sql = template;
+  for(const [k,v] of Object.entries(vars)){
+    sql = sql.replaceAll(`__${k}__`, String(v));
+  }
+  return sql;
 }
 
 /**
@@ -68,46 +84,56 @@ const IDENTITY_COLUMNS = [
 ];
 const BACKFILL_BATCH = 1000;
 
+
 async function backfillIdentityColumns() {
+    const migrateSqlPath = path.resolve(sqlDir, 'migrate');
+    const probeSoftDeleteSql = loadSql(path.resolve(migrateSqlPath, 'probe-soft-delete.sql'));
+    const countMissingSqlTpl = loadSql(path.resolve(migrateSqlPath, 'count-missing.sql'));
+    const batchSqlTpl = loadSql(path.resolve(migrateSqlPath, 'backfill-batch.sql'));
+    const setNotNullSqlTpl = loadSql(path.resolve(migrateSqlPath, 'set-not-null.sql'))
     for (const { table, column } of IDENTITY_COLUMNS) {
         // 该表是否有软删列（若无则视为「未删除」直通回填）
         const { rows: colRows } = await pool.query(
-            `SELECT 1 FROM information_schema.columns
-              WHERE table_schema = 'public' AND table_name = $1 AND column_name = 'is_deleted'`,
-            [table],
+            probeSoftDeleteSql,
+            [table]
         );
         const softDeleteClause = colRows.length > 0 ? 'AND is_deleted = false' : '';
         const whereClause = `${column} IS NULL ${softDeleteClause}`;
 
-        const { rows } = await pool.query(
-            `SELECT COUNT(*)::int AS missing FROM ${table} WHERE ${whereClause}`,
-        );
+        const countMissingSql = renderSql(countMissingSqlTpl, {
+            TABLE: table,
+            WHERE_CLAUSE: whereClause
+        })
+        const { rows } = await pool.query(countMissingSql);
         const missing = rows[0].missing;
         if (missing === 0) {
-            continue; // 新库建表自带该列 / 早已回填过 → 零开销跳过
+            // 新库建表自带该列 / 早已回填过 → 零开销跳过回填
+            console.log(`[db:init] ${table}.${column} 不存在 NULL 行，直接收紧 NOT NULL`);
+        } else {
+            console.log(`[db:init] ${table}.${column} 存在 ${missing} 个 NULL 行，开始分批回填…`);
+            const batchSql = renderSql(batchSqlTpl, {
+                TABLE: table,
+                COLUMN: column,
+                VALUE_EXPR: 'gen_random_uuid()',
+                WHERE_CLAUSE: whereClause,
+                BATCH_LIMIT: String(BACKFILL_BATCH)
+            })
+            // 循环分批回填直到清零：FOR UPDATE SKIP LOCKED 并发安全，LIMIT 控单批锁面
+            let batch = -1;
+            while (batch !== 0) {
+                const result = await pool.query(batchSql);
+                batch = result.rowCount ?? 0;
+            }
+            console.log(`[db:init] ${table}.${column} 数据回填完成`);
         }
 
-        console.log(`[db:init] ${table}.${column} 存在 ${missing} 个 NULL 行，开始分批回填…`);
-        // 循环分批回填直到清零：FOR UPDATE SKIP LOCKED 并发安全，LIMIT 控单批锁面
-        let batch = -1;
-        while (batch !== 0) {
-            const result = await pool.query(
-                `UPDATE ${table}
-                    SET ${column} = gen_random_uuid()
-                  WHERE id IN (
-                      SELECT id FROM ${table}
-                       WHERE ${whereClause}
-                       ORDER BY id
-                       LIMIT $1
-                       FOR UPDATE SKIP LOCKED
-                  )`,
-                [BACKFILL_BATCH],
-            );
-            batch = result.rowCount ?? 0;
-        }
-        // 回填完成才能收紧 NOT NULL
-        await pool.query(`ALTER TABLE ${table} ALTER COLUMN ${column} SET NOT NULL`);
-        console.log(`[db:init] ${table}.${column} 回填完成并收紧 NOT NULL`);
+        // 收紧 NOT NULL 放在分支外：回填分支（清零后收紧）与零缺失分支（直接收紧）都需要
+        const setNotNullSql = renderSql(setNotNullSqlTpl, {
+            TABLE: table,
+            COLUMN: column
+        })
+        await pool.query(setNotNullSql);
+        console.log(`[db:init] ${table}.${column} 已确保 NOT NULL约束`);
     }
 }
 

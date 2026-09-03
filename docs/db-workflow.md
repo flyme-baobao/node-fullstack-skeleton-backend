@@ -8,6 +8,71 @@
 - 连接池：[server/src/db/index.ts](../server/src/db/index.ts) 创建全局唯一 `pg.Pool`（参数来自环境变量，见 `db.config.ts`）。
 - SQL：repository 层直接书写参数化 SQL（`$1` 占位符传参），杜绝字符串拼接注入。
 
+### SQL 参数化：`$n` 占位符的使用边界
+
+node-postgres 用 `$1`、`$2`… 传值，但有严格边界：**`$n` 只能出现在「值（value）」位置；表名、列名、模式名等「标识符（identifier）」位置不能参数化，SQL 关键字同样不能**。
+
+| 位置 | 示例 | `$n` 可用 |
+|---|---|---|
+| WHERE 等号右边 | `WHERE table_name = $1` | ✅ |
+| 比较 / IN 值列表 | `WHERE id IN ($1, $2)` | ✅ |
+| INSERT 的 VALUES | `VALUES ($1, $2)` | ✅ |
+| LIMIT / OFFSET | `LIMIT $1` | ✅（PG 支持参数化 LIMIT） |
+| SET 等号右边 | `SET done = $1` | ✅ |
+| 函数参数 | `WHERE lower(email) = lower($1)` | ✅ |
+| UPDATE / FROM 后的表名 | `UPDATE todos SET …` | ❌ 标识符位置 |
+| SELECT / ORDER BY / GROUP BY 后的列名 | `SELECT id … ORDER BY id` | ❌ 标识符位置 |
+| ALTER TABLE / ALTER COLUMN 后的对象名 | `ALTER TABLE users …` | ❌ 标识符位置 |
+| SET / ALTER 等号左边的列名 | `SET uid = …` | ❌ 标识符位置 |
+
+判别一句话：**`$n` 替代的是「一个具体的值」，不是「一个名字」**。函数调用也不能参数化——`gen_random_uuid()` 一旦作为参数传入，就变成字符串字面量 `'gen_random_uuid()'`（带引号），不再是函数执行。
+
+标识符位置怎么传？本仓库对**迁移脚本**（[server/src/db/sql/migrate/](../server/src/db/sql/migrate/)）用「模板占位符 + 代码内白名单」方案：
+
+- SQL 模板里写 `__TABLE__` / `__COLUMN__` / `__VALUE_EXPR__` / `__WHERE_CLAUSE__` 等占位符；
+  调用方传**裸键**（`TABLE`、`COLUMN`…），[scripts/db-init.js](../scripts/db-init.js) 的 `renderSql()`
+  内部用 \`\`__${k}__\`\` 包裹后 `replaceAll`——三方约定：**模板带双下划线、调用方不带、函数负责包**；
+- 只按硬编码白名单（`IDENTITY_COLUMNS`）替换，不接用户输入，无注入面；
+- 值位置仍然走 `$n` 参数（如 `probe-soft-delete.sql` 的 `table_name = $1`、回填的 `LIMIT $1`）。
+
+migrate/ 目录四个文件的职责（探测 → 计数 → 回填 → 收紧，由 `backfillIdentityColumns()` 串起来）：
+
+| 文件 | 职责 | 值来源 |
+|---|---|---|
+| `probe-soft-delete.sql` | 探测表是否有 `is_deleted` 列（有才拼软删过滤） | `$1` 表名（值位置） |
+| `count-missing.sql` | 统计 `uid/user_id IS NULL` 未删行数，0 则整表跳过 | 模板 `__TABLE__` / `__WHERE_CLAUSE__` |
+| `backfill-batch.sql` | 单批回填（`WHERE ... LIMIT ... FOR UPDATE SKIP LOCKED`），脚本循环到清零 | 模板 + `LIMIT $1` 参数 |
+| `set-not-null.sql` | 回填清零后才收紧 `SET NOT NULL` | 模板 `__TABLE__` / `__COLUMN__` |
+
+坏例子（把标识符 / 函数调用当参数）：
+
+```js
+// ❌ table/column 是标识符、gen_random_uuid() 是函数调用，均不能参数化；
+//    传参后列名替换不进 SQL、函数变成字符串字面量、LIMIT $4 倒是合法——三种混在一起必错
+await pool.query(backfillBatchSql, [table, column, 'gen_random_uuid()', BACKFILL_BATCH]);
+```
+
+好例子（标识符走模板、值走参数）：
+
+```js
+const batchSql = renderSql(backfillBatchSql, {
+    TABLE: table, COLUMN: column, VALUE_EXPR: 'gen_random_uuid()', WHERE_CLAUSE: whereClause,
+});
+await pool.query(batchSql, [BACKFILL_BATCH]); // LIMIT $1 走参数
+```
+
+> ⚠️ `renderSql()` 的替换是 `replaceAll` 静默执行，两个坑都是真实踩过的：
+>
+> 1. **占位符键名拼错不报错**（键不匹配就被忽略，占位符原样留在模板里进库才炸）——
+>    曾出现过脚本传 `BATCH_LIMIT`、模板写 `__BATCH_SIZE__`，`LIMIT __BATCH_SIZE__` 原样输出直接语法错误；
+>    改模板后要核对「模板占位符 ↔ 脚本传键」一一对应；
+> 2. **模板缺占位符是静默行为，且后果隐蔽**——`backfill-batch.sql` 曾漏写 `__WHERE_CLAUSE__`，
+>    此时 `renderSql` 正常返回、SQL 也能跑，但子查询不过滤 NULL 行，**整批行的 uid 会被重新生成覆盖**；
+>    写模板后要检查每个关键 WHERE 条件在模板里真的存在。
+>
+> 另外：`renderSql` 的产物才是可执行的 SQL——曾出现过渲染出 `countMissingSql` 后
+> `pool.query` 仍传模板原文 `countMissingSqlTpl`（`FROM __TABLE__` 原样进库语法错误）的低级失误，核对调用点传的是渲染结果。
+
 ## 二、连接参数从哪来
 
 优先级（见 [server/src/db/db.config.ts](../server/src/db/db.config.ts) 的 `buildConnectionString()`）：
@@ -26,6 +91,13 @@
 - 执行：两个命令跑同一个脚本 `scripts/db-init.js`，按环境取连接参数——
   `npm run db:init:dev`（本地开发：显式 `NODE_ENV=development`，强制读 `.env.development`，与 `npm run dev` 同环境）
   或 `npm run db:init`（通用：跟随 `NODE_ENV`，非生产自动读 `.env.development`；生产容器内不读文件、直接用注入的 `DATABASE_URL`）。
+
+`db-init.js` 实际做**两件事**（结构在前、数据在后）：
+
+1. **结构**：执行 [server/src/db/sql/init.sql](../server/src/db/sql/init.sql)（纯 DDL，幂等，只建缺失对象）；
+2. **数据迁移**：`backfillIdentityColumns()` 回填对外标识列并收紧 `NOT NULL`（见下「对外标识列的补列流程」）。
+   SQL 拆在 [server/src/db/sql/migrate/](../server/src/db/sql/migrate/) 下，脚本只做编排；
+   当前清单见脚本内 `IDENTITY_COLUMNS`（`todos.uid` / `users.user_id`），加表加一行即可。
 - 执行时机：
 
 | 场景 | 时机 | 说明 |
@@ -95,16 +167,37 @@ UUID 不可预测，对外一律用它定位行。controller 层用 UUID 正则�
 
 1. 修改 [server/src/db/sql/init.sql](../server/src/db/sql/init.sql)（新库视角，保持 `IF NOT EXISTS` 语义）；
 2. 对**已存在的老库**，把增量变更以幂等形式追加进 init.sql；
-   实例：todos 增加 uid 列时即同时追加了
-   `ALTER TABLE todos ADD COLUMN IF NOT EXISTS uid UUID NOT NULL DEFAULT gen_random_uuid();`
-   与唯一索引 `todos_uid_key`（volatile 默认值逐行回填老数据，todos 是小表可接受；
-   重跑 db:init 一次完成补列，之后再跑因 `IF NOT EXISTS` 命中而跳过，回填值不会变）；
-   users 表同理（对外标识列是 `user_id`）：
-   `ALTER TABLE users ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();`
    ⚠️ **给已有表加任何新列，都必须同步追加对应的幂等 ALTER**，否则老库不会自动获得该列，
    后续引用新列的语句（建索引、业务查询）会报 `column "xxx" does not exist`；
-3. 执行 `npm run db:init`；
+3. 执行 `npm run db:init`（若新增了对外标识列，见下一节「对外标识列的补列流程」）；
 4. 同步更新 `todo.repository.ts` 里的 SQL 投影与行类型 `TodoRow`（以及 service / controller 签名）。
+
+#### 对外标识列的补列流程（init.sql 纯 DDL + 脚本回填）
+
+给已有表补对外标识列（如 todos.uid / users.user_id）是**职责拆两半**的典型：
+
+**前半（init.sql，纯结构 DDL，不动数据）**——三步幂等补列：
+
+```sql
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS uid UUID;                      -- ① 可空补列：O(1) 元数据操作；存量行存在时不能一步加 NOT NULL
+ALTER TABLE todos ALTER COLUMN uid SET DEFAULT gen_random_uuid();          -- ② SET DEFAULT：后续 INSERT 不带该列也自动生成
+CREATE UNIQUE INDEX IF NOT EXISTS todos_uid_key ON todos (uid);            -- ③ 对外唯一索引（查找走它）
+```
+
+**后半（migrate/ + db-init.js，数据迁移）**——由 `scripts/db-init.js` 的 `backfillIdentityColumns()`
+在结构就绪后按表串行执行（SQL 见 [migrate/](../server/src/db/sql/migrate/)）：
+
+1. 探测表是否有 `is_deleted`（软删过滤仅对带该列的表生效）；
+2. `COUNT` 缺失行数，为 0 则整表跳过；
+3. 循环分批 `UPDATE ... SET uid = gen_random_uuid() WHERE ... ORDER BY id LIMIT 1000 FOR UPDATE SKIP LOCKED` 直到清零；
+4. 清零后才 `ALTER TABLE ... SET NOT NULL` 收紧。
+
+为什么回填不放 init.sql：init.sql 是 multi-statement 一次发送，无法在「回填完」与「收紧 NOT NULL」之间
+编排——存量 NULL 超过单批 LIMIT 时一次 UPDATE 只回填一批，紧接着 SET NOT NULL 必失败，且每次重跑都失败；
+脚本可以循环回填到 0 行再收紧，才是真正收敛。
+
+> 新库无需此流程：CREATE TABLE 直接写 `uid UUID NOT NULL DEFAULT gen_random_uuid()`，
+> 补列 ALTER 是给老库兜底的（CREATE TABLE IF NOT EXISTS 命中跳过，老库缺列则执行）。
 
 > 取舍：不引入 ORM 与自动迁移，换来完全透明的 SQL 与更少的依赖层；
 > 代价是改表结构需人工维护 DDL。将来表多、变更频繁后，可再引入 node-pg-migrate 等轻量迁移工具。
