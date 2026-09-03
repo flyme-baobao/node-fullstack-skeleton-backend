@@ -15,4 +15,6 @@ export type TodoView = TodoItem & {
     /** 视图层可直接用的格式化时间（用户时区/语言） */
     createTimeFormat: string;
     modifyTimeFormat: string;
+    createTimeStamp: number;
+    modifyTimeStamp: number;
 };

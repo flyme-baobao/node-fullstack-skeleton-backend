@@ -24,6 +24,8 @@ function toView(userContext: UserContext, item: TodoItem): TodoView {
         ...item,
         createTimeFormat: formatUserDateTime(userContext, createdAt),
         modifyTimeFormat: formatUserDateTime(userContext, updatedAt),
+        createTimeStamp: createdAt.getTime(),
+        modifyTimeStamp: updatedAt.getTime(),
     };
 }
 
