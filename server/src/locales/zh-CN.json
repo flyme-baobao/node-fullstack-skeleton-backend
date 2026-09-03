@@ -66,7 +66,7 @@
     },
     "errors": {
         "todo_empty": "待办内容不能为空！",
-        "invalid_id": "无效的待办编号",
+        "invalid_uid": "无效的待办标识",
         "unsupported_lang": "不支持的语言：{{lang}}",
         "toggle_not_found": "要切换的待办不存在或已被删除",
         "remove_not_found": "要删除的待办不存在或已被删除",

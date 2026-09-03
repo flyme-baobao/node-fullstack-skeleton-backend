@@ -66,7 +66,7 @@
     },
     "errors": {
         "todo_empty": "The to-do item cannot be empty!",
-        "invalid_id": "Invalid to-do id",
+        "invalid_uid": "Invalid to-do identifier",
         "unsupported_lang": "Unsupported language: {{lang}}",
         "toggle_not_found": "To-do to toggle not found or already deleted",
         "remove_not_found": "To-do to remove not found or already deleted",

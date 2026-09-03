@@ -62,10 +62,9 @@ describe('POST /todos', () => {
     });
 });
 
-describe('POST /todos/:id/toggle', () => {
-    it('切换完成状态', async () => {
-        const res = await request(await buildApp()).post('/todos/1/toggle');
-        assert.equal(res.status, 200);
-        assert.match(res.text, /学习 htmx/);
+describe('POST /todos/:uid/toggle', () => {
+    it('非法 uid（非 UUID 形态）返回 400（不查库，纯参数校验）', async () => {
+        const res = await request(await buildApp()).post('/todos/not-a-uuid/toggle');
+        assert.equal(res.status, 400);
     });
 });

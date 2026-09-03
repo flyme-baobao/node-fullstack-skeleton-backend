@@ -21,7 +21,7 @@
             data-confirm-confirm="<%= done ? t('confirm.undo_btn') : t('confirm.mark_btn') %>"
             data-confirm-cancel="<%= t('confirm.cancel_btn') %>"
             data-confirm-variant="info" 
-            hx-post="/page/todos/<%= id %>/toggle" hx-swap="outerHTML">
+            hx-post="/page/todos/<%= uid %>/toggle" hx-swap="outerHTML">
             <%= done ? '↩ ' + t('confirm.undo_btn') : '✓ ' + t('confirm.mark_btn') %>
         </button>
         <button class="btn-danger" data-confirm="<%= t('confirm.delete_msg') %>"
@@ -29,7 +29,7 @@
             data-confirm-confirm="<%= t('confirm.delete_accept') %>"
             data-confirm-cancel="<%= t('confirm.cancel_btn') %>"
             data-confirm-variant="danger"
-            hx-delete="/page/todos/<%= id %>" hx-swap="delete">
+            hx-delete="/page/todos/<%= uid %>" hx-swap="delete">
             ✕ <%= t('confirm.delete_btn') %>
         </button>
     </div>

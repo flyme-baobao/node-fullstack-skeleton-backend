@@ -32,17 +32,19 @@ export async function listFragment(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * 解析并校验路径参数里的待办 id（/todos/:id）。
- * 要求：必须是「可转的、非负的整数」。非法（NaN / 小数 / 负数）时
- * 抛 HttpError(400)，交由全局 errorHandler 统一映射，不进入 service。
+ * 解析并校验路径参数里的待办 uid（/todos/:uid）。
+ * 对外查找键是 uid（UUID，库端生成），不暴露内部自增 id：id 可枚举易被爬遍历，uid 不可预测。
+ * 要求：必须是规范 UUID 形态（8-4-4-4-12 十六进制，大小写均可）。非法时抛 HttpError(400)，
+ * 交由全局 errorHandler 统一映射，不进入 service。
  */
-function parseValidId(ctx: WebContext): number {
-    const id = Number(ctx.params.id ?? '');
-    if (!Number.isInteger(id) || id < 0) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function parseValidUid(ctx: WebContext): string {
+    const uid = String(ctx.params.uid ?? '');
+    if (!UUID_RE.test(uid)) {
         // status 由调用方定，code 属业务层并映射 i18n key
-        throw new HttpError({ ... ERROR_CODES.invalid_id });
+        throw new HttpError({ ...ERROR_CODES.invalid_uid });
     }
-    return id;
+    return uid;
 }
 
 /** POST /todos —— 新增待办并返回局部片段 */
@@ -75,14 +77,14 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
     ctx.render('partials/item', newItem);
 }
 
-/** POST /todos/:id/toggle —— 切换完成状态，返回该条目局部片段 */
+/** POST /todos/:uid/toggle —— 切换完成状态，返回该条目局部片段 */
 export async function toggleTodo(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
 
-    // 数据清洗：非法 id（非数字）直接抛 400，不查库
-    const id = parseValidId(ctx);
+    // 数据清洗：非法 uid（非 UUID 形态）直接抛 400，不查库
+    const uid = parseValidUid(ctx);
 
-    const item = await todoService.toggleTodo(ctx.userContext, id);
+    const item = await todoService.toggleTodo(ctx.userContext, uid);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库读写
 
@@ -94,14 +96,14 @@ export async function toggleTodo(req: Request, res: Response): Promise<void> {
     ctx.render('partials/item', item);
 }
 
-/** DELETE /todos/:id —— 删除待办 */
+/** DELETE /todos/:uid —— 删除待办 */
 export async function removeTodo(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
 
-    const id = parseValidId(ctx);
+    const uid = parseValidUid(ctx);
    
-    // 校验 id 合法后删除；service 已把 status/code 拼进结果，controller 直接透传给 HttpError
-    const result = await todoService.removeTodo(ctx.userContext, id);
+    // 校验 uid 合法后删除；service 已把 status/code 拼进结果，controller 直接透传给 HttpError
+    const result = await todoService.removeTodo(ctx.userContext, uid);
 
     await sleep(DB_LATENCY_MS); // 模拟数据库删除
 

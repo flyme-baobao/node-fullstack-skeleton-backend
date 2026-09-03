@@ -47,8 +47,8 @@ export async function createTodo(userContext: UserContext, dto: CreateTodoDto): 
 }
 
 /** 切换完成状态：返回被治理后的视图对象（不存在返回 undefined） */
-export async function toggleTodo(userContext: UserContext,id: number): Promise<TodoView | undefined> {
-    const item = await todoRepository.toggle(id);
+export async function toggleTodo(userContext: UserContext, uid: string): Promise<TodoView | undefined> {
+    const item = await todoRepository.toggle(uid);
     return item ? toView(userContext, item) : undefined;
 }
 
@@ -64,9 +64,9 @@ export type RemoveResult = {
 };
 
 /** 删除待办：返回成功与否及失败信息（区分「不存在」与「移除失败」） */
-export async function removeTodo(_userContext: UserContext, id: number): Promise<RemoveResult> {
+export async function removeTodo(_userContext: UserContext, uid: string): Promise<RemoveResult> {
     try {
-        const removed = await todoRepository.remove(id);
+        const removed = await todoRepository.remove(uid);
         if (!removed) {
             return {
                 success: false,

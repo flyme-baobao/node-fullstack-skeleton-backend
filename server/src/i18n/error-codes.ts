@@ -20,7 +20,7 @@ export interface ErrorCodeDefinition {
 
 export const ERROR_CODES = {
     todo_empty:       { code: 40001, message: 'errors.todo_empty', status: 400 },
-    invalid_id:       { code: 40002, message: 'errors.invalid_id', status: 400 },
+    invalid_uid:      { code: 40002, message: 'errors.invalid_uid', status: 400 },
     unsupported_lang: { code: 40003, message: 'errors.unsupported_lang', status: 400 },
     toggle_not_found: { code: 40401, message: 'errors.toggle_not_found', status: 404 },
     remove_not_found: { code: 40402, message: 'errors.remove_not_found', status: 404 },

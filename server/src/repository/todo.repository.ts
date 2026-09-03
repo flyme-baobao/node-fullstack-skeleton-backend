@@ -6,10 +6,13 @@ import type { QueryResult, QueryResultRow } from 'pg';
 
 /** TodoRow 与 TodoItem 的公共字段：字段名、类型完全一致，才值得上提；各自独有字段由两侧补充 */
 interface TodoBase {
-    id: number;
+    /** 对外查找键（UUID，库端 gen_random_uuid 生成）：对外接口/htmx 路由一律携带它 */
+    uid: string;
     text: string;
     done: boolean;
 }
+// 内部自增 id 不进任何 SELECT / RETURNING 投影（不出 repository 对外契约），
+// 只在 SQL 内部参与定位后排序（ORDER BY id DESC）；对外定位一律用 uid。
 
 /** 待办实体（对外契约，camelCase；时间字段为 Date，展示层格式化见 utils/userTime.ts） */
 export interface TodoItem extends TodoBase {
@@ -75,7 +78,9 @@ async function queryWithLog<T extends QueryResultRow>(op: string, sql: string, p
 export async function list(): Promise<TodoItem[]> {
     const { rows } = await queryWithLog<TodoRow>(
         'todo.list',
-        `SELECT id, text, done, created_at, updated_at
+        // SELECT 的投影就是列清单本身（RETURNING 只属于 INSERT/UPDATE/DELETE）；
+        // id 仅出现在 ORDER BY，不进投影——内部主键不出对外契约
+        `SELECT uid, text, done, created_at, updated_at
            FROM todos
           WHERE is_deleted = false
           ORDER BY id DESC`,
@@ -89,7 +94,7 @@ export async function create(text: string): Promise<TodoItem> {
         'todo.create',
         `INSERT INTO todos (text, updated_at)
          VALUES ($1, now())
-         RETURNING id, text, done, created_at, updated_at`,
+         RETURNING uid, text, done, created_at, updated_at`,
         [text],
     );
     return toItem(rows[0]);
@@ -97,37 +102,37 @@ export async function create(text: string): Promise<TodoItem> {
 
 /**
  * 切换完成状态：返回该条目（找不到返回 undefined）。
- * 一条原子 UPDATE（done = NOT done ... RETURNING）取代原「先 SELECT 再 UPDATE」两步往返，
- * 天然避免并发下读到旧值再覆盖。
+ * 按 uid 定位（对外查找键）；一条原子 UPDATE（done = NOT done ... RETURNING）取代原
+ * 「先 SELECT 再 UPDATE」两步往返，天然避免并发下读到旧值再覆盖。
  */
-export async function toggle(id: number): Promise<TodoItem | undefined> {
+export async function toggle(uid: string): Promise<TodoItem | undefined> {
     const { rows } = await queryWithLog<TodoRow>(
         'todo.toggle',
         `UPDATE todos
             SET done = NOT done,
                 updated_at = now()
-          WHERE id = $1
+          WHERE uid = $1
             AND is_deleted = false
-         RETURNING id, text, done, created_at, updated_at`,
-        [id],
+         RETURNING uid, text, done, created_at, updated_at`,
+        [uid],
     );
     return rows[0] ? toItem(rows[0]) : undefined;
 }
 
-/** 删除：软删，返回是否删到了（rowCount 命中行数，找不到 false）。 */
-export async function remove(id: number): Promise<boolean> {
+/** 删除（软删，按 uid 定位），返回是否删到了（rowCount 命中行数，找不到 false）。 */
+export async function remove(uid: string): Promise<boolean> {
     const { rowCount } = await queryWithLog(
         'todo.remove',
         `UPDATE todos
             SET is_deleted = true,
                 updated_at = now()
-          WHERE id = $1
+          WHERE uid = $1
             AND is_deleted = false`,
-        [id],
+        [uid],
     );
 
     if (rowCount === 0) {
-        logger.warn('todo remove missed', { todoId: id });
+        logger.warn('todo remove missed', { todoUid: uid });
         return false;
     }
 

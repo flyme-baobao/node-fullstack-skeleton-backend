@@ -254,8 +254,8 @@ app.use(renderPageMiddleware);            // ④ 后挂 res.renderPage
 
 | 场景 | 做法 |
 |---|---|
-| 非法入参（空文本 / 非法 id） | `throw new HttpError({ status: 400, code: 40001 })` |
-| 资源不存在（id 合法但库里没有） | `throw new HttpError({ status: 404, code: 40401 })` |
+| 非法入参（空文本 / 非法 uid，非 UUID 形态） | `throw new HttpError({ status: 400, code: 40001 })` |
+| 资源不存在（uid 形态合法但库里没有） | `throw new HttpError({ status: 404, code: 40401 })` |
 | 服务端故障（入参已清洗却仍失败） | `throw new HttpError({ status: 500, code: 50001 })` |
 
 - **service / repository**：只返回「可空」结果（`null` / `undefined` / `boolean`），把语义交给上层，**不抛 HttpError**（见 `todo.service.ts` 的 `toView` 与 controller 对 status 的决定）。

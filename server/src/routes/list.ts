@@ -17,10 +17,10 @@ router.get(TODOS_PATH, asyncHandler(todoController.listFragment));
 // 添加待办：返回局部片段，htmx 用它替换 #todo-list
 router.post(TODOS_PATH, asyncHandler(todoController.createTodo));
 
-// 切换完成状态：返回局部片段
-router.post(`${TODOS_PATH}/:id/toggle`, asyncHandler(todoController.toggleTodo));
+// 切换完成状态：路径用 uid（UUID 对外查找键），不暴露内部自增 id；返回局部片段
+router.post(`${TODOS_PATH}/:uid/toggle`, asyncHandler(todoController.toggleTodo));
 
 // 删除待办
-router.delete(`${TODOS_PATH}/:id`, asyncHandler(todoController.removeTodo));
+router.delete(`${TODOS_PATH}/:uid`, asyncHandler(todoController.removeTodo));
 
 export { router as listRouter };
