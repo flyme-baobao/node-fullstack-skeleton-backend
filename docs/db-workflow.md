@@ -99,6 +99,10 @@ UUID 不可预测，对外一律用它定位行。controller 层用 UUID 正则�
    `ALTER TABLE todos ADD COLUMN IF NOT EXISTS uid UUID NOT NULL DEFAULT gen_random_uuid();`
    与唯一索引 `todos_uid_key`（volatile 默认值逐行回填老数据，todos 是小表可接受；
    重跑 db:init 一次完成补列，之后再跑因 `IF NOT EXISTS` 命中而跳过，回填值不会变）；
+   users 表同理（对外标识列是 `user_id`）：
+   `ALTER TABLE users ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();`
+   ⚠️ **给已有表加任何新列，都必须同步追加对应的幂等 ALTER**，否则老库不会自动获得该列，
+   后续引用新列的语句（建索引、业务查询）会报 `column "xxx" does not exist`；
 3. 执行 `npm run db:init`；
 4. 同步更新 `todo.repository.ts` 里的 SQL 投影与行类型 `TodoRow`（以及 service / controller 签名）。
 

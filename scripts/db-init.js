@@ -48,6 +48,75 @@ try {
 } catch (err) {
     console.error('[db:init] 执行失败：', err instanceof Error ? err.message : String(err));
     process.exit(1);
+}
+
+/**
+ * 回填对外标识（UUID 列）并收紧 NOT NULL。
+ *
+ * 为什么在脚本里做而不是 init.sql：
+ *   1. init.sql 保持「纯结构 DDL、不动已有数据」的语义（头部注释约定），回填是数据迁移，归脚本；
+ *   2. init.sql 是 multi-statement 一次发送，无法「回填完再收紧」——若存量 NULL 行超过单批 LIMIT，
+ *      一次 UPDATE 只回填一批，紧接着 SET NOT NULL 必失败；脚本可以循环回填到 0 行再收紧，真正收敛；
+ *   3. 对表近空的场景（当前演示数据），检测到 0 个 NULL 行即零开销跳过。
+ *
+ * 收敛对象：todos.uid / users.user_id（对外查找键，CREATE TABLE 已自带则无需任何操作）。
+ * 软删过滤：仅对带 is_deleted 列的表（如 todos）生效，users 等无该列的表不做此过滤。
+ */
+const IDENTITY_COLUMNS = [
+    { table: 'todos', column: 'uid' },
+    { table: 'users', column: 'user_id' },
+];
+const BACKFILL_BATCH = 1000;
+
+async function backfillIdentityColumns() {
+    for (const { table, column } of IDENTITY_COLUMNS) {
+        // 该表是否有软删列（若无则视为「未删除」直通回填）
+        const { rows: colRows } = await pool.query(
+            `SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = $1 AND column_name = 'is_deleted'`,
+            [table],
+        );
+        const softDeleteClause = colRows.length > 0 ? 'AND is_deleted = false' : '';
+        const whereClause = `${column} IS NULL ${softDeleteClause}`;
+
+        const { rows } = await pool.query(
+            `SELECT COUNT(*)::int AS missing FROM ${table} WHERE ${whereClause}`,
+        );
+        const missing = rows[0].missing;
+        if (missing === 0) {
+            continue; // 新库建表自带该列 / 早已回填过 → 零开销跳过
+        }
+
+        console.log(`[db:init] ${table}.${column} 存在 ${missing} 个 NULL 行，开始分批回填…`);
+        // 循环分批回填直到清零：FOR UPDATE SKIP LOCKED 并发安全，LIMIT 控单批锁面
+        let batch = -1;
+        while (batch !== 0) {
+            const result = await pool.query(
+                `UPDATE ${table}
+                    SET ${column} = gen_random_uuid()
+                  WHERE id IN (
+                      SELECT id FROM ${table}
+                       WHERE ${whereClause}
+                       ORDER BY id
+                       LIMIT $1
+                       FOR UPDATE SKIP LOCKED
+                  )`,
+                [BACKFILL_BATCH],
+            );
+            batch = result.rowCount ?? 0;
+        }
+        // 回填完成才能收紧 NOT NULL
+        await pool.query(`ALTER TABLE ${table} ALTER COLUMN ${column} SET NOT NULL`);
+        console.log(`[db:init] ${table}.${column} 回填完成并收紧 NOT NULL`);
+    }
+}
+
+try {
+    await backfillIdentityColumns();
+    console.log('[db:init] 对外标识列回填完成（todos.uid / users.user_id → NOT NULL）');
+} catch (err) {
+    console.error('[db:init] 回填失败：', err instanceof Error ? err.message : String(err));
+    process.exit(1);
 } finally {
     await pool.end();
 }
