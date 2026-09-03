@@ -30,7 +30,7 @@ declare global {
             /**
              * 当前登录用户id（userContext 中间件从 session / token / cookie 解析，未登录可为 undefined）
              */
-            userId?: number;
+            userId?: string;
         }
 
         interface Response {
