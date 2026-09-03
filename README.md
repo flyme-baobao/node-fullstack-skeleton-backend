@@ -49,7 +49,7 @@ project-root/                           # 当前仓库根目录（占位名，�
 │  │  │  └─ todo.dto.ts
 │  │  ├─ i18n/                      # i18next 核心配置
 │  │  │  ├─ config.ts               #   i18next 初始化与语言检测配置
-│  │  │  ├─ error-codes.ts          #   错误码词典（HttpError 反查 message / status）
+│  │  │  ├─ error-defs.ts           #   错误词条映射（HttpError 反查 message / status）
 │  │  │  └─ locales.ts              #   语言包加载
 │  │  ├─ locales/                   # 语言包 JSON 资源
 │  │  │  ├─ en-US.json
@@ -391,7 +391,7 @@ controller 既可用**传统 `req/res`**（局部片段 `res.render('partials/�
 
 **业务错误只在 controller 层 `throw new HttpError({ status, code })`**，由全局中间件统一映射成响应；service / repository 只返回可空结果（`null` / `undefined` / `boolean`），middleware 只发响应，均不抛 HTTP 错误。
 
-错误码集中在 `i18n/error-codes.ts` 的 `ERROR_CODES` 单一词典：`HttpError` 构造时按 `code` 反查得到 `message`（i18n key）与 `status`，格式 `xxyyy`（3 位 HTTP 状态 + 2 位序号，如 `40001`）。controller 只需 `new HttpError({ status, code })`，无需自带文案。
+错误码分两层登记：`constants/response-codes.ts` 集中登记 `HTTP_STATUS`（常用 HTTP 状态码）与 `BUSINESS_CODE`（数字业务码，格式 `xxyyy`：3 位 HTTP 状态 + 2 位序号，如 `40001`，协议值冻结）；`i18n/error-defs.ts` 的 `ERROR_DEFS` 做词条映射，`code` / `status` 引用上述常量。`HttpError` 构造时按 `code` 反查得到 `message`（i18n key）与 `status`。controller 只需 `new HttpError({ status, code })`，无需自带文案。
 
 controller 若为 **async**，路由须用 `asyncHandler` 包裹：async 抛错会变成 rejected Promise，Express 捕获不到；`asyncHandler` 用 `.catch(next)` 把错误转进错误管道。async handler 里**任何** `throw`（含 `HttpError`、`await` 失败、`render`/`renderPage` 内部异常）都由它兜转，无需为渲染单独处理。同步路由的渲染错误则走 Express 原生 `next(err)` 链路，不需要 asyncHandler。`asyncHandler` 是路由装配工具，放在 `utils/`（不在 error.middleware），属于错误发生前的上游转运。
 

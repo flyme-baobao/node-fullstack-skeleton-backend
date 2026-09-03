@@ -2,7 +2,7 @@ import type { UserContext } from '../adapter/webCtx.js';
 import type { TodoItem } from '../repository/todo.repository.js';
 import type { CreateTodoDto, TodoView } from '../dto/todo.dto.js';
 import * as todoRepository from '../repository/todo.repository.js';
-import { ERROR_CODES } from '../i18n/error-codes.js';
+import { ERROR_DEFS } from '../i18n/error-defs.js';
 import { formatUserDateTime } from '../utils/userTime.js';
 /**
  * 待办业务层（薄）：
@@ -72,9 +72,9 @@ export async function removeTodo(_userContext: UserContext, uid: string): Promis
         if (!removed) {
             return {
                 success: false,
-                code: ERROR_CODES.remove_not_found.code,
+                code: ERROR_DEFS.remove_not_found.code,
                 reason: 'not_found',
-                status: ERROR_CODES.remove_not_found.status
+                status: ERROR_DEFS.remove_not_found.status
             };
         }
         return { success: true };
@@ -82,9 +82,9 @@ export async function removeTodo(_userContext: UserContext, uid: string): Promis
         // 写盘/底层失败（与「找不到 id」区分）→ 业务码 remove_failed
         return {
             success: false,
-            code: ERROR_CODES.remove_failed.code,
+            code: ERROR_DEFS.remove_failed.code,
             reason: 'remove_failed',
-            status: ERROR_CODES.remove_failed.status
+            status: ERROR_DEFS.remove_failed.status
         };
     }
 }

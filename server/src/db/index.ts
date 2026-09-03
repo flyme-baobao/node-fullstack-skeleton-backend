@@ -12,7 +12,7 @@ import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { buildConnectionString } from './db.config.js';
 import { HttpError } from '../middleware/error.middleware.js';
-import { ERROR_CODES } from '../i18n/error-codes.js';
+import { ERROR_DEFS } from '../i18n/error-defs.js';
 
 type GlobalWithPgPool = typeof globalThis & {
     __pgPool?: Pool;
@@ -43,7 +43,7 @@ export function getPool(): Pool {
             hint: 'set DATABASE_URL (CI/Docker) or DB_USER/DB_PASSWORD/DB_HOST/DB_NAME (.env.development)',
         });
         throw new HttpError({
-            ...ERROR_CODES.db_not_configured,
+            ...ERROR_DEFS.db_not_configured,
         });
     }
 
@@ -98,7 +98,7 @@ export async function connectDatabase(): Promise<Pool> {
             error: err instanceof Error ? err.message : String(err),
         });
         throw new HttpError({
-            ...ERROR_CODES.db_connect_error,
+            ...ERROR_DEFS.db_connect_error,
         });
     }
 

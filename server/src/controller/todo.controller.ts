@@ -3,7 +3,7 @@ import type { WebContext } from '../adapter/webCtx.js';
 import { createWebCtx } from '../adapter/webCtx.js';
 import * as todoService from '../service/todo.service.js';
 import { HttpError } from '../middleware/error.middleware.js';
-import { ERROR_CODES } from '../i18n/error-codes.js';
+import { ERROR_DEFS } from '../i18n/error-defs.js';
 import { sleep } from '../utils/sleep.js';
 
 /**
@@ -42,7 +42,7 @@ function parseValidUid(ctx: WebContext): string {
     const uid = String(ctx.params.uid ?? '');
     if (!UUID_RE.test(uid)) {
         // status 由调用方定，code 属业务层并映射 i18n key
-        throw new HttpError({ ...ERROR_CODES.invalid_uid });
+        throw new HttpError({ ...ERROR_DEFS.invalid_uid });
     }
     return uid;
 }
@@ -54,7 +54,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
     const text = String(ctx.body?.text ?? '').trim();
     if (!text) {
         // 非法入参：空文本，直接拦截，不进入 service
-        throw new HttpError({ ...ERROR_CODES.todo_empty });
+        throw new HttpError({ ...ERROR_DEFS.todo_empty });
     }
 
     const newItem = await todoService.createTodo(ctx.userContext, { text });
@@ -63,7 +63,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
 
     if (!newItem) {
         // 入参已清洗且非空，此处仍失败 = 服务端故障（持久化/底层异常）→ 500
-        throw new HttpError({ ...ERROR_CODES.create_failed });
+        throw new HttpError({ ...ERROR_DEFS.create_failed });
     }
 
     // 空 → 第一条：原来是空列表占位，必须整体替换才能去掉“暂无待办”
@@ -90,7 +90,7 @@ export async function toggleTodo(req: Request, res: Response): Promise<void> {
 
     if (!item) {
         throw new HttpError({
-            ...ERROR_CODES.toggle_not_found,
+            ...ERROR_DEFS.toggle_not_found,
         });
     }
     ctx.render('partials/item', item);
@@ -110,8 +110,8 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     if (!result.success) {
         // result 未带 status/code 时兑底为 remove_failed（50002/500）
         throw new HttpError({
-            status: result.status ?? ERROR_CODES.remove_failed.status,
-            code: result.code ?? ERROR_CODES.remove_failed.code,
+            status: result.status ?? ERROR_DEFS.remove_failed.status,
+            code: result.code ?? ERROR_DEFS.remove_failed.code,
         });
     }
 

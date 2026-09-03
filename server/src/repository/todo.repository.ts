@@ -1,7 +1,7 @@
 import { getPool } from '../db/index.js';
 import { logger } from '../utils/logger.js';
 import { HttpError } from '../middleware/error.middleware.js';
-import { ERROR_CODES } from '../i18n/error-codes.js';
+import { ERROR_DEFS } from '../i18n/error-defs.js';
 import type { QueryResult, QueryResultRow } from 'pg';
 
 /** TodoRow 与 TodoItem 的公共字段：字段名、类型完全一致，才值得上提；各自独有字段由两侧补充 */
@@ -70,7 +70,7 @@ async function queryWithLog<T extends QueryResultRow>(op: string, sql: string, p
         });
         // 统一转 HttpError 上抛（不再裸抛原始 pg 错误）：errorHandler 走 HttpError 分支，
         // 响应带业务码 50005（db_query_error，运行时查询失败）+ i18n 文案；
-        throw new HttpError({ ...ERROR_CODES.db_query_error });
+        throw new HttpError({ ...ERROR_DEFS.db_query_error });
     }
 }
 

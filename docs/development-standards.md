@@ -246,7 +246,7 @@ app.use(renderPageMiddleware);            // ④ 后挂 res.renderPage
 
 **铁律：业务错误只在 controller 层 `throw new HttpError({ status, code })`，其他层一律不得抛 HTTP 错误。**
 
-错误码走**单一事实来源** —— `server/src/i18n/error-codes.ts` 的 `ERROR_CODES` 词典（格式 `xxyyy`：3 位 HTTP 状态 + 2 位序号，如 `40001`）。`HttpError` 构造时按 `code` 从词典反查 `message`（i18n key）与 `status`，因此 controller 通常只需 `new HttpError({ status: 400, code: 40001 })`，无需自带文案；也可 `{ status, message }` 传 i18n key 或自由文案兜底。
+错误码分**两层登记** —— `server/src/constants/response-codes.ts` 集中登记 `HTTP_STATUS`（常用 HTTP 状态码）与 `BUSINESS_CODE`（数字业务码唯一事实来源，协议值，格式 `xxyyy`：3 位 HTTP 状态 + 2 位序号，如 `40001`，一经发布冻结）；`server/src/i18n/error-defs.ts` 的 `ERROR_DEFS` 词典做**词条映射**，`code` / `status` 一律引用上述常量。`HttpError` 构造时按 `code` 从词典反查 `message`（i18n key）与 `status`，因此 controller 通常只需 `new HttpError({ status: 400, code: 40001 })`，无需自带文案；也可 `{ status, message }` 传 i18n key 或自由文案兜底。
 
 由全局 `errorHandler` 中间件统一映射成响应，业务/路由代码**不手写** `res.status(…).send(…)` 去补错误响应。
 

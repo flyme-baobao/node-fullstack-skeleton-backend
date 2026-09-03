@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger.js';
-import { getErrorByCode } from '../i18n/error-codes.js';
+import { getErrorByCode } from '../i18n/error-defs.js';
 
 /**
  * HttpError 构造参数。

@@ -4,7 +4,7 @@ import { SUPPORTED_LANGUAGES, loadI18n } from '../i18n/locales.js';
 import { metaForPath, toClientPath } from '../views.js';
 import { listTodos } from '../service/todo.service.js';
 import { HttpError } from '../middleware/error.middleware.js';
-import { ERROR_CODES } from '../i18n/error-codes.js';
+import { ERROR_DEFS } from '../i18n/error-defs.js';
 import { sleep } from '../utils/sleep.js';
 
 /**
@@ -28,7 +28,7 @@ export async function changeLanguage(req: Request, res: Response): Promise<void>
     const lang = String(ctx.body?.lang || '');
     if (!SUPPORTED_LANGUAGES.includes(lang)) {
         throw new HttpError({
-            ...ERROR_CODES.unsupported_lang,
+            ...ERROR_DEFS.unsupported_lang,
             params: { lang },
         });
     }
