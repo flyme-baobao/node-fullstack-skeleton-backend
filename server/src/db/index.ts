@@ -38,7 +38,7 @@ export function getPool(): Pool {
 
     const connectionString = buildConnectionString();
     if (!connectionString) {
-        // 记日志后再统一抛 HttpError（业务码 50004）：避免裸 Error 落入 errorHandler「未知异常」分支
+        // 记日志后再统一抛 HttpError（业务码 50003）：避免裸 Error 落入 errorHandler「未知异常」分支
         logger.error('db pool init failed: connection not configured', {
             hint: 'set DATABASE_URL (CI/Docker) or DB_USER/DB_PASSWORD/DB_HOST/DB_NAME (.env.development)',
         });
@@ -93,12 +93,12 @@ export async function connectDatabase(): Promise<Pool> {
             client.release();
         }
     } catch (err) {
-        // 建连/探测失败（库没起、账号密码错、连接超时等）：记原始原因后统一抛 HttpError（业务码 50003）
+        // 建连/探测失败（库没起、账号密码错、连接超时等）：记原始原因后统一抛 HttpError（业务码 50004 db_connect_error，
         logger.error('PostgreSQL connect probe failed', {
             error: err instanceof Error ? err.message : String(err),
         });
         throw new HttpError({
-            ...ERROR_CODES.db_error,
+            ...ERROR_CODES.db_connect_error,
         });
     }
 

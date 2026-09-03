@@ -69,8 +69,8 @@ async function queryWithLog<T extends QueryResultRow>(op: string, sql: string, p
             error: err instanceof Error ? err.message : String(err),
         });
         // 统一转 HttpError 上抛（不再裸抛原始 pg 错误）：errorHandler 走 HttpError 分支，
-        // 响应带业务码 50003 + i18n 文案；原始错误细节只留在上方日志里，不外泄给客户端。
-        throw new HttpError({ ...ERROR_CODES.db_error });
+        // 响应带业务码 50005（db_query_error，运行时查询失败）+ i18n 文案；
+        throw new HttpError({ ...ERROR_CODES.db_query_error });
     }
 }
 

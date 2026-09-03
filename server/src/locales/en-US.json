@@ -72,8 +72,9 @@
         "remove_not_found": "To-do to remove not found or already deleted",
         "create_failed": "Failed to create to-do, please try again later",
         "remove_failed": "Failed to delete to-do, please try again later",
-        "db_error": "Database operation failed, please try again later",
         "db_not_configured": "Database is not configured, please check environment variables",
+        "db_connect_error": "Database connection failed, please check service status",
+        "db_query_error": "Database operation failed, please try again later",
         "bad_request": "Malformed request body",
         "not_found": "Resource not found",
         "internal_error": "Internal server error, please try again later"

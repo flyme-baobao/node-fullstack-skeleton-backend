@@ -72,8 +72,9 @@
         "remove_not_found": "要删除的待办不存在或已被删除",
         "create_failed": "新增待办失败，请稍后重试",
         "remove_failed": "删除待办失败，请稍后重试",
-        "db_error": "数据库操作失败，请稍后重试",
         "db_not_configured": "数据库未配置，请检查环境变量",
+        "db_connect_error": "数据库连接失败，请检查服务状态",
+        "db_query_error": "数据库操作失败，请稍后重试",
         "bad_request": "请求格式有误",
         "not_found": "资源不存在",
         "internal_error": "服务器开小差了，请稍后再试"
