@@ -22,7 +22,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const SESSION_TZ_QUERY = `?options=${encodeURIComponent('-c timezone=UTC')}`;
 
-function buildConnectionString() {
+function buildPostgresUrl() {
     const url = process.env.DATABASE_URL;
     if (url) return url.includes('options=') ? url : `${url}${SESSION_TZ_QUERY}`;
     const { DB_USER, DB_PASSWORD, DB_HOST, DB_NAME } = process.env;
@@ -31,7 +31,7 @@ function buildConnectionString() {
     return `postgresql://${encodeURIComponent(DB_USER)}:${encodeURIComponent(DB_PASSWORD)}@${DB_HOST}:${port}/${encodeURIComponent(DB_NAME)}${SESSION_TZ_QUERY}`;
 }
 
-const connectionString = buildConnectionString();
+const connectionString = buildPostgresUrl();
 if (!connectionString) {
     console.error('[db:init] 数据库未配置：请设置 DATABASE_URL，或填写 DB_USER/DB_PASSWORD/DB_HOST/DB_NAME（.env.development）');
     process.exit(1);

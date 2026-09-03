@@ -99,6 +99,16 @@ export const ERROR_DEFS = {
         message: 'errors.db_io_error',
         status: HTTP_STATUS.INTERNAL_SERVER_ERROR
     },
+    redis_connect_error: {
+        code: BUSINESS_CODE.REDIS_CONNECT_ERROR,
+        message: 'errors.redis_connect_error',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
+    redis_not_configured: {
+        code: BUSINESS_CODE.REDIS_NOT_CONFIGURED,
+        message: 'errors.redis_not_configured',
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    },
     bad_request: {
         code: BUSINESS_CODE.BAD_REQUEST,
         message: 'errors.bad_request',

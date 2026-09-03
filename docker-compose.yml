@@ -29,11 +29,20 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       SERVER_PORT: ${SERVER_PORT}
       TZ: ${TZ:-Asia/Shanghai}
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/0
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME}
       DB_POOL_MAX: ${DB_POOL_MAX}
-      DB_IDLE_TIMEOUT_MS: ${DB_IDLE_TIMEOUT_MS}
-      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS}
+      DB_IDLE_TIMEOUT_MS: ${DB_IDLE_TIMEOUT_MS:-30000}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-5000}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/0
+      REDIS_CONNECT_TIMEOUT_MS: ${REDIS_CONNECT_TIMEOUT_MS:-5000}
     # 官方安全就绪等待：不只是启动顺序，等待服务真正健康就绪
     depends_on:
       postgres:

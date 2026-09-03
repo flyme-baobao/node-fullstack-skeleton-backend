@@ -21,8 +21,8 @@
 | 样式 | Tailwind CSS | utility-first，按需生成，和模板类名兼容 |
 | 构建 / HMR | Vite 8 | 双端口 dev server；Vite 提供 SPA shell、模块 transform 与 HMR |
 | 国际化 | i18next + i18next-http-middleware | URL 参数 / Cookie / Accept-Language 三层语言探测 |
-| 数据库 | PostgreSQL 16（`postgres:16-alpine`）+ node-pg | 原生 pg 驱动（无 ORM），连接池统一出口 `db/index.ts`，SQL 落 `db/sql/` 文件由 `loadSql` 加载；建表走 `npm run db:init` 幂等脚本 |
-| 缓存（规划中） | Redis 7（`redis:7-alpine`） | compose 已编排并对接 `REDIS_URL`，`db/redis.ts` 提供占位骨架；客户端未装、业务未接入，接入后在此统一管理连接 |
+| 数据库 | PostgreSQL 16（`postgres:16-alpine`）+ node-pg | 原生 pg 驱动（无 ORM），连接池实现 `db/postgres.ts`（`db/index.ts` 聚合导出 postgres + redis），SQL 落 `db/sql/` 文件由 `loadSql` 加载；建表走 `npm run db:init` 幂等脚本 |
+| 缓存 | Redis 7（`redis:7-alpine`）+ @redis/client | 官方底层驱动，连接管理 `db/redis.ts`（启动 connect+PING 探测、退场 disconnect），业务侧经 `createRedisCache()` 缓存接口使用；compose 注入 `REDIS_URL`，本地用 `REDIS_HOST/PORT/PASSWORD` 拼装 |
 
 ## 目录结构
 
@@ -133,7 +133,7 @@ project-root/                           # 当前仓库根目录（占位名，�
 └─ CI/CD 相关目录（.github / .gitee / .yunxiao / .workflow）
 ```
 
-> 💡 **数据库目录说明**：`server/src/db/`（含 `sql/init.sql`、`index.ts`、`redis.ts`、`db.config.ts`）已接入 PostgreSQL：使用**原生 node-pg 驱动**（无 ORM），`db/index.ts` 创建全局唯一连接池，`repository/todo.repository.ts` 直接书写参数化 SQL（`$1` 占位符防注入）；表结构由 `db/sql/init.sql` 定义，执行 `npm run db:init` 幂等建表，原理与改表约定见 [docs/db-workflow.md](docs/db-workflow.md)。
+> 💡 **数据库目录说明**：`server/src/db/`（含 `sql/init.sql`、`postgres.ts`、`redis.ts`、`db.config.ts`）已接入 PostgreSQL（**原生 node-pg 驱动**，无 ORM）与 Redis（**@redis/client**）：`db/postgres.ts` 创建全局唯一连接池，`db/redis.ts` 统一管理 Redis 连接，`db/index.ts` 聚合导出两者；`repository/todo.repository.ts` 直接书写参数化 SQL（`$1` 占位符防注入）；表结构由 `db/sql/init.sql` 定义，执行 `npm run db:init` 幂等建表，原理与改表约定见 [docs/db-workflow.md](docs/db-workflow.md)。
 
 ## 启动方式（双端口，env 驱动）
 

@@ -5,7 +5,7 @@
 ## 一、技术选型
 
 - 驱动：[node-postgres（pg）](https://node-postgres.com/)，无 ORM、直接写 SQL。
-- 连接池：[server/src/db/index.ts](../server/src/db/index.ts) 创建全局唯一 `pg.Pool`（参数来自环境变量，见 `db.config.ts`）。
+- 连接池：[server/src/db/postgres.ts](../server/src/db/postgres.ts) 创建全局唯一 `pg.Pool`（参数来自环境变量，见 `db.config.ts`；`db/index.ts` 为 postgres + redis 聚合出口）。
 - SQL：repository 层直接书写参数化 SQL（`$1` 占位符传参），杜绝字符串拼接注入。
 
 ### SQL 参数化：`$n` 占位符的使用边界
@@ -75,7 +75,7 @@ await pool.query(batchSql, [BACKFILL_BATCH]); // LIMIT $1 走参数
 
 ## 二、连接参数从哪来
 
-优先级（见 [server/src/db/db.config.ts](../server/src/db/db.config.ts) 的 `buildConnectionString()`）：
+优先级（见 [server/src/db/db.config.ts](../server/src/db/db.config.ts) 的 `buildPostgresUrl()`）：
 
 1. `DATABASE_URL` —— 完整连接串（CI / docker-compose 注入形态）；
 2. `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` / `DB_NAME` —— 分量拼装（本地 `.env.development` 形态）；

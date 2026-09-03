@@ -7,7 +7,10 @@ import { registerShutdown } from './runtime/shutdownRuntime.js';
 import { installProcessErrorGuard } from './runtime/processErrors.js';
 import { logger } from './utils/logger.js';
 import { listenWithRetry } from './utils/listenWithRetry.js';
-import { connectDatabase, disconnectDatabase } from './db/index.js';
+import { 
+    connectDatabase, disconnectDatabase,
+    connectRedis, disconnectRedis
+} from './db/index.js';
 
 // NODE_ENV 由【进程环境】决定（docker/cli 注入），不从 .env 读
 const isProd = process.env.NODE_ENV === 'production';
@@ -29,6 +32,7 @@ installProcessErrorGuard();
 
 async function main(): Promise<void> {
     await connectDatabase();
+    await connectRedis();
 
     const app = await createApp();
 
@@ -47,7 +51,13 @@ async function main(): Promise<void> {
     });
 
     // 把退场逻辑注册到 SIGTERM / SIGINT，收到信号时尽快释放 server（Vite 已独立，由 concurrently 统一管理）
-    registerShutdown({ server, closeApp: disconnectDatabase });
+    registerShutdown({
+        server,
+        closeApp: async () => {
+            await disconnectDatabase();
+            await disconnectRedis();
+        },
+    });
 }
 
 main().catch((err) => {

@@ -1,18 +1,14 @@
 /**
- * 数据库全局参数配置（db.config.ts）
- *
- * 集中管理数据库（PostgreSQL）连接参数的「拼装规则」，统一从环境变量读取，
- * 供 db/index.ts 创建原生 pg 连接池、scripts/db-init.js 建表时取值，避免散落各处。
- *
- * ⚠️ 只提供函数、不做模块顶层常量：ESM 静态 import 会先于入口文件
- * index.ts 模块体内的 dotenv.config() 执行，顶层读 env 会拿到空配置。
+ * db.config.ts 数据库全局配置
+ * 优先DATABASE_URL，PostgreSQL连接参数拼装，读取环境变量，供pg连接池、初始化脚本使用。
+ * ⚠️ 使用函数导出，ESM下避免模块顶层读取env导致dotenv未加载拿到空值。
  */
 import process from 'node:process';
 
 
 const SESSION_TZ_QUERY = `?options=${encodeURIComponent('-c timezone=UTC')}`;
 
-export function buildConnectionString(): string | undefined {
+export function buildPostgresUrl(): string | undefined {
     const url = process.env.DATABASE_URL;
     if (url) {
         return url.includes('options=') ? url : `${url}${SESSION_TZ_QUERY}`;
@@ -32,7 +28,24 @@ export function buildConnectionString(): string | undefined {
     return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(name)}${SESSION_TZ_QUERY}`;
 }
 
-/** Redis 配置（供未来 redis.ts 使用，来自 .env；当前未接入业务，无冻结风险） */
-export const redisConfig = {
-    url: process.env.REDIS_URL ?? 'redis://localhost:6379',
-};
+/**
+ * Redis连接串配置，与PG配置逻辑一致。
+ * 优先REDIS_URL，否则用主机/端口/密码拼装；密码URL编码处理特殊字符。
+ * ⚠️ 函数导出，防止ESM模块加载阶段env尚未初始化。
+ */
+export function buildRedisUrl(): string | undefined {
+    const url = process.env.REDIS_URL;
+    if (url) {
+        return url;
+    }
+
+    const host = process.env.REDIS_HOST;
+    const port = process.env.REDIS_PORT;
+    if (!host || !port) {
+        return undefined;
+    }
+    const password = process.env.REDIS_PASSWORD;
+    return password
+        ? `redis://:${encodeURIComponent(password)}@${host}:${port}/0`
+        : `redis://${host}:${port}/0`;
+}
