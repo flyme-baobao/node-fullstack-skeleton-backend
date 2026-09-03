@@ -7,7 +7,7 @@ export type UserContext = {
   /** IANA 时区标识符，如 Asia/Shanghai、Etc/UTC */
   userTimeZone: string;
   /** 当前登录用户id，未登录可为 undefined */
-  userId?: number;
+  userId?: string;
 };
 
 /**
