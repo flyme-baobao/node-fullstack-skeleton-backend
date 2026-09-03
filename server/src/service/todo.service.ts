@@ -35,8 +35,8 @@ export async function listTodos(userContext: UserContext): Promise<TodoView[]> {
 }
 
 /** 统计待办数量（controller 判断空 / 删光等特殊重绘分支用） */
-export async function countTodos(): Promise<number> {
-    return (await todoRepository.list()).length;
+export async function countTodos(userContext: UserContext): Promise<number> {
+    return (await listTodos(userContext)).length;
 }
 
 /** 新增待办：直接落库（文本已由 controller 完成清洗），返回被治理后的视图对象；失败返回 null */

@@ -87,13 +87,12 @@ export async function list(): Promise<TodoItem[]> {
     return rows.map(toItem);
 }
 
-/** 新增：返回新条目（updated_at 无表默认值须显式 now()；created_at 走表默认 CURRENT_TIMESTAMP）。 */
+/** 新增：返回新条目。updated_at 显式写入，与 created_at 走表默认的 CURRENT_TIMESTAMP 同读一个事务时刻，出生时刻两列必然相等。 */
 export async function create(text: string): Promise<TodoItem> {
+    const sql = loadSql('todo/create.sql');
     const { rows } = await queryWithLog<TodoRow>(
         'todo.create',
-        `INSERT INTO todos (text, updated_at)
-         VALUES ($1, now())
-         RETURNING uid, text, done, created_at, updated_at`,
+        sql,
         [text],
     );
     return toItem(rows[0]);
@@ -105,14 +104,10 @@ export async function create(text: string): Promise<TodoItem> {
  * 「先 SELECT 再 UPDATE」两步往返，天然避免并发下读到旧值再覆盖。
  */
 export async function toggle(uid: string): Promise<TodoItem | undefined> {
+    const sql = loadSql('todo/toggle.sql');
     const { rows } = await queryWithLog<TodoRow>(
         'todo.toggle',
-        `UPDATE todos
-            SET done = NOT done,
-                updated_at = now()
-          WHERE uid = $1
-            AND is_deleted = false
-         RETURNING uid, text, done, created_at, updated_at`,
+        sql,
         [uid],
     );
     return rows[0] ? toItem(rows[0]) : undefined;
@@ -120,13 +115,10 @@ export async function toggle(uid: string): Promise<TodoItem | undefined> {
 
 /** 删除（软删，按 uid 定位），返回是否删到了（rowCount 命中行数，找不到 false）。 */
 export async function remove(uid: string): Promise<boolean> {
+    const sql = loadSql('todo/remove.sql');
     const { rowCount } = await queryWithLog(
         'todo.remove',
-        `UPDATE todos
-            SET is_deleted = true,
-                updated_at = now()
-          WHERE uid = $1
-            AND is_deleted = false`,
+        sql,
         [uid],
     );
 
