@@ -21,6 +21,8 @@
 | 样式 | Tailwind CSS | utility-first，按需生成，和模板类名兼容 |
 | 构建 / HMR | Vite 8 | 双端口 dev server；Vite 提供 SPA shell、模块 transform 与 HMR |
 | 国际化 | i18next + i18next-http-middleware | URL 参数 / Cookie / Accept-Language 三层语言探测 |
+| 数据库 | PostgreSQL 16（`postgres:16-alpine`）+ node-pg | 原生 pg 驱动（无 ORM），连接池统一出口 `db/index.ts`，SQL 落 `db/sql/` 文件由 `loadSql` 加载；建表走 `npm run db:init` 幂等脚本 |
+| 缓存（规划中） | Redis 7（`redis:7-alpine`） | compose 已编排并对接 `REDIS_URL`，`db/redis.ts` 提供占位骨架；客户端未装、业务未接入，接入后在此统一管理连接 |
 
 ## 目录结构
 

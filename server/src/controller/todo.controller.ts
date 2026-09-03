@@ -70,6 +70,7 @@ export async function createTodo(req: Request, res: Response): Promise<void> {
     const todos = await todoService.listTodos(ctx.userContext);
     if (todos.length=== 1) {
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="afterbegin"
+        ctx.setHeader('HX-Retarget', '#todo-list-block'); // 覆盖 #todo-list
         ctx.render('partials/list', { todos });
         return;
     }
@@ -118,7 +119,7 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     const todos = await todoService.listTodos(ctx.userContext);
     if (todos.length === 0) {
         // 删光最后一条：留「表头 + 空占位」整块回来（partials/list 根是 #todo-list-block）
-        ctx.set('HX-Retarget', '#todo-list-block'); // 覆盖 closest .todo-item
+        ctx.setHeader('HX-Retarget', '#todo-list-block'); // 覆盖 closest .todo-item
         ctx.setHeader('HX-Reswap', 'outerHTML'); // 覆盖 hx-swap="delete"
         ctx.render('partials/list', { todos });
         return;

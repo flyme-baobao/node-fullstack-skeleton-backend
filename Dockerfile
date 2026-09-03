@@ -23,7 +23,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 # 拷贝根级配置。vite.*.ts 均在 client/ 下，由下方 COPY client ./client 带入 /app/client/，根目录不存在、勿在此再拷。
-COPY tsconfig.base.json tsconfig.json tsconfig.server.json ./
+# index.d.ts 是 tsconfig.json / tsconfig.server.json 共用的全局类型声明（Optional / RequiredProperty），必须一并拷入。
+COPY index.d.ts tsconfig.base.json tsconfig.json tsconfig.server.json ./
 COPY server ./server
 COPY client ./client
 COPY scripts ./scripts
@@ -60,10 +61,6 @@ COPY --from=builder /app/dist-client ./dist-client
 # db-init.js 以自身路径向上回溯定位 server/src/db/sql/init.sql，两层目录结构必须保持一致。
 COPY scripts/db-init.js ./scripts/db-init.js
 COPY server/src/db/sql ./server/src/db/sql
-# 待办持久化数据目录（server.dataDir 默认指向项目根下 data）
-# 必须 chown 给 node（uid 1000）：下面会切 USER node 以非 root 运行，若不授权，
-# node 用户对 root 属主的 data 目录没有写权限，落盘 todos.json 会抛 EACCES。
-RUN mkdir -p data && chown -R node:node data
 
 
 # 安全规范：不使用root运行Node进程，使用官方普通node用户，规避容器权限风险

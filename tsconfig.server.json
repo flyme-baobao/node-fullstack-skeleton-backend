@@ -10,6 +10,6 @@
         "sourceMap": true,
         "types": ["node"]
     },
-    "include": ["server/src"],
+    "include": ["server/src", "index.d.ts"],
     "exclude": ["server/src/legacy"]
 }
