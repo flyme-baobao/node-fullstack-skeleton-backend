@@ -64,9 +64,41 @@
 
 ---
 
-## 4. 后端设计
+## 5. 安全风险与缓解（评审结论）
 
-### 4.1 中间件 `auth.middleware`（含白名单判断）
+> 评审指出，以下为设计层面需实现时留意、本版本不额外扩展范围的项。
+
+### 5.1 CSRF 风险（sessionId Cookie 未配 CSRF token）
+
+**现状**：sessionId 放 httpOnly Cookie 由浏览器自动携带，未加 CSRF token。
+
+**攻击路径**：跨站恶意页面无法携带 localStorage 的 token（跨站不可读），只能自动带上 Cookie sid。而本方案允许**单凭证放行**，故仅带 sid 的恶意跨站请求可进入单凭证分支并通过校验。
+
+**缓解（二选一，本版本采用前者 + 双凭证一致性兜底）**：
+- 登录后签发的 `sessionId` Cookie 属性如下（`auth.service` 签发处硬编码）：
+  - `httpOnly: true`（JS 不可读，防 XSS 直取）
+  - `sameSite: 'strict'`（跨站请求不携带 Cookie，大幅降低 CSRF 携带面）
+  - `secure: process.env.NODE_ENV === 'production'`（非生产 http 可正常联调；生产强制 HTTPS 携带）
+  - `maxAge` 7d（与 Redis sid TTL 对齐）、`path: '/'`
+- 增加 CSRF token（列入后续迭代）。
+
+另：本方案要求写操作接口（POST/DELETE 等）在被调用前，前端均已持有 localStorage token 并通过 htmx/fetch 注入 `Authorization`——前端同源场景下会形成双凭证齐全 → 走 uid 一致性校验，进一步收窄跨站利用面。
+
+### 5.2 XSS 窃取 token 风险（架构选型代价）
+
+**现状**：token 存 localStorage，一旦 XSS，token 可被偷走（sessionId httpOnly 不会被盗）。
+
+**缓解**：双凭证模型降低危害——攻击者拿到 token 拿不到 sid；但仅 token 即可放行接口，故 XSS 拿到 token 仍可调用。属架构选型代价，文档在后记补充，不在本版实施修改。
+
+### 5.3 登出 / 凭证作废边界
+
+登出接口不在本版本：Redis 中 sid/token 只能等 TTL（7d / 2h）自然过期。需要用户主动登出、改密/踢下线时，属后续迭代（届时补 `POST /api/auth/signout`，`del` 对应 Redis key）。
+
+---
+
+## 6. 后端设计
+
+### 6.1 中间件 `auth.middleware`（含白名单判断）
 
 命名**不使用 `/`requireAuth`**（用户已确认该命名不贴切），命名一个 `auth`-居中件。
 
@@ -85,15 +117,15 @@
           └─ 一致 → 写 req.userId → 放行（403 分支注释预留）
 ```
 
-### 4.2 接口清单（分层 controller → service → repository）
+### 6.2 接口清单（分层 controller → service → repository）
 
 | 方法 | 路径 | 行为 |
 |---|---|---|
 | POST | `/api/auth/signup` | 查找用户 → 40901 → scrypt 落库 → **201，不签发任何凭证** |
-| POST | `/api/auth/signin` | 查找用户 → verifyPassword → issueSession → `200 {token, user}` + Set-Cookie(sessionId httpOnly 7d) |
+| POST | `/api/auth/signin` | 查找用户 → verifyPassword → issueSession → `200 {token, user}` + Set-Cookie：`sessionId`（`httpOnly` + `sameSite=strict` + `secure=production` + `maxAge=7d` + `path=/`） |
 | GET | `/api/auth/me` | getUserInfo，读 `req.userId` → `200 {user}` |
 
-### 4.3 密码散列
+### 6.3 密码散列
 
 ```ts
 // node:crypto，零新增依赖
@@ -101,25 +133,29 @@ const [salt, hash] = await scrypt(password, randomSalt(16), 32); // 格式 scryp
 // 比对用 timingSafeEqual（常量时间），带基础长度校验
 ```
 
-### 4.4 数据落盘
+### 6.4 数据落盘
 
 - 新增 `users` 表：`id`、`account`、`nickname`、`password`（`scrypt$salt$hash`）、`created_at`。
 - 鉴权会话不落库，全部 Redis `SETEX`：`auth:token:{token}` / `auth:session:{sid}`。
 
 ---
 
-## 5. 未登录时的页面降级
+## 7. 未登录时的页面降级
 
-`page.controller` 读取 `req.userId`；缺失时：
+`isLogin` 由 `user-context` 中间件统一派生：`req.isLogin = !!req.userId`（随 `req.userId` 解析自动更新，`req.userId` 在 `auth.middleware` 写入/缺失），模板渲染时通过 `locals` 带上 `isLogin`。
+
+未登录（`req.userId` 缺失 → `req.isLogin=false`）的私有整页：
 - `todos` 返回空数组，模板渲染**未登录引导面板**（“请登录后管理待办”，非空占位）。
-- `isAuthenticated=false` 传给模板。
-- **页面仍返回 200** `DEC`下拉，由前端 beforeRender 负责跳转。
+- `isLogin=false` 传给模板（来自 `req.isLogin`，非重解析）。
+- **页面仍返回 200**（数据正常渲染壳与片段），但通过 `isLogin=false` + 空列表通知前端未登录，最终跳转由前端 beforeRender 负责。
+
+登录/注册页为非私有页，不触发降级，模板直渲表单。
 
 ---
 
-## 6. 前端设计
+## 8. 前端设计
 
-### 6.1 状态管理 `auth/session.ts`（唯一读写口）
+### 8.1 状态管理 `auth/session.ts`（唯一读写口）
 
 | 存储项 | 键 | 存储位置 | 语义 |
 |---|---|---|---|
@@ -130,7 +166,7 @@ const [salt, hash] = await scrypt(password, randomSalt(16), 32); // 格式 scryp
 - `token`、`redirect_path`、`is_auth_checked` 这类**一次性标记，用后即删**，避免意外残留导致 bug。
 - 前端从响应体拿 token (`{token}`)，sessionId 由浏览器自动携带 Cookie，前端不可读（httpOnly）。
 
-### 6.2 `fK httpFetch` 拦截
+### 8.2 `httpFetch` 拦截
 
 - 请求统一注入 `Authorization: Bearer {token}`。
 - 响应 401：
@@ -140,7 +176,7 @@ const [salt, hash] = await scrypt(password, randomSalt(16), 32); // 格式 scryp
 - 响应 403：仅 toast，不动作。
 - 提供 `skipAuthRedirect` 选项供 `beforeRender` / `authGuard` 手动处理 401。
 
-### 6.3 双阶段启动 `bootstrap`（模拟 SPA render）
+### 8.3 双阶段启动 `bootstrap`（模拟 SPA render）
 
 ```
 阶段 1  beforeRender（htmx 未就绪，只做决策，不渲染）:
@@ -154,20 +190,20 @@ const [salt, hash] = await scrypt(password, randomSalt(16), 32); // 格式 scryp
    └─ 路由就绪后若有决策 → navigate(redirect)
 ```
 
-### 6.4 `authGuard`（htmx afterSwap 指向 #root 且是 auth 页）
+### 8.4 `authGuard`（htmx afterSwap 指向 #root 且是 auth 页）
 
 消费 `is_auth_checked`：
 - **有标记** → 直接显示表单（业务页面自动跳来）。
 - **无标记**（手动打开 / 新标签页）→ 调用 `getUserInfo`：已登录 → 消费 `redirect_path` 回跳 `/`；`401` → 显示表单。
 - **卡片备注**：新标签页标记丢失 → 自动降级为回到认证重新鉴权。
 
-### 6.5 钩子三件套（`htmx lifecycle`）
+### 8.5 钩子三件套（`htmx lifecycle`）
 
 - `configRequest` → 注入 `Bearer`。
 - `responseError` → 401（非 auth 页）→ 清凭证 + 写标记 + 跳 `/signin`；`403` → toast。
 - `afterSwap` → auth 页调用 该定 `authGuard`。
 
-### 6.6 表单接线（validForm/authForm）
+### 8.6 表单接线（validForm/authForm）
 
 - 去除原 TODO 兜底。
 - signin 成功 → `setToken` + 消费 `redirect_path` 回跳 `/`；否则回到入口页。
@@ -176,7 +212,7 @@ const [salt, hash] = await scrypt(password, randomSalt(16), 32); // 格式 scryp
 
 ---
 
-## 7. 时序图（关键流程）
+## 9. 时序图（关键流程）
 
 ```mermaid
 sequenceDiagram
@@ -197,7 +233,7 @@ sequenceDiagram
 
 ---
 
-## 8. 文件变更清单
+## 10. 文件变更清单
 
 **后端新增**
 - `server/src/utils/crypto.ts`（scrypt 哈希 / 双凭证生成）
@@ -232,15 +268,8 @@ sequenceDiagram
 - `client/src/components/validForm/authForm/index.ts`
 - `client/src/router/routes.ts`
 
-**明确排除（不在本版本范围内）**
-- 登出接口
-- 403 业务场景 / 角色权限
-- token 续签 / refresh
-- remember me
 
----
-
-## 9. 实施顺序
+## 11. 实施顺序
 
 1. 后端 Phase A：`crypto.ts`、response-codes、error-defs、locales、`auth.middleware`、`app.ts` 挂载、users表。
 2. 后端 Phase B：users repository、auth service、auth controller、routes/auth、页面降级（page.controller + 模板）。
