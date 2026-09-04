@@ -73,6 +73,8 @@
         "refresh": "刷新列表",
         "placeholder": "输入要做的事…",
         "add": "添加",
+        "signin_required_title": "登录后管理你的待办",
+        "signin_required_hint": "待办数据按账号隔离，登录（或注册）后即可添加、完成、删除自己的待办。",
         "columns": {
             "content": "内容",
             "create_time": "创建时间",
@@ -107,6 +109,7 @@
         "todo_empty": "待办内容不能为空！",
         "invalid_uid": "无效的待办标识",
         "unsupported_lang": "不支持的语言：{{lang}}",
+        "invalid_params": "请求参数缺失或格式不正确",
         "toggle_not_found": "要切换的待办不存在或已被删除",
         "remove_not_found": "要删除的待办不存在或已被删除",
         "create_failed": "新增待办失败，请稍后重试",
@@ -121,6 +124,11 @@
         "redis_not_configured": "Redis 未配置，请检查环境变量",
         "redis_connect_error": "Redis 连接失败，请检查服务状态",
         "bad_request": "请求格式有误",
+        "unauthorized": "未登录或登录已失效，请先登录",
+        "session_mismatch": "登录状态异常，请重新登录",
+        "credential_invalid": "账号或密码错误",
+        "forbidden": "没有权限执行该操作",
+        "account_exists": "该账号已存在",
         "not_found": "资源不存在",
         "internal_error": "服务器开小差了，请稍后再试"
     }

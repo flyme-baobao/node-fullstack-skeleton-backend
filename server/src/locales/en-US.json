@@ -73,6 +73,8 @@
         "refresh": "Refresh",
         "placeholder": "What needs doing?",
         "add": "Add",
+        "signin_required_title": "Sign in to manage your to-dos",
+        "signin_required_hint": "To-dos are scoped to your account. Sign in (or sign up) to add, complete and delete your own tasks.",
         "columns": {
             "content": "Content",
             "create_time": "Create Time",
@@ -107,6 +109,7 @@
         "todo_empty": "The to-do item cannot be empty!",
         "invalid_uid": "Invalid to-do identifier",
         "unsupported_lang": "Unsupported language: {{lang}}",
+        "invalid_params": "Missing or malformed request parameters",
         "toggle_not_found": "To-do to toggle not found or already deleted",
         "remove_not_found": "To-do to remove not found or already deleted",
         "create_failed": "Failed to create to-do, please try again later",
@@ -121,6 +124,11 @@
         "redis_not_configured": "Redis is not configured, please check environment variables",
         "redis_connect_error": "Redis connection failed, please check service status",
         "bad_request": "Malformed request body",
+        "unauthorized": "Not signed in or session expired, please sign in",
+        "session_mismatch": "Session state is inconsistent, please sign in again",
+        "credential_invalid": "Invalid account or password",
+        "forbidden": "You do not have permission to perform this action",
+        "account_exists": "This account already exists",
         "not_found": "Resource not found",
         "internal_error": "Internal server error, please try again later"
     }

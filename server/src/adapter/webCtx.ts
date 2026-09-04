@@ -8,6 +8,11 @@ export type UserContext = {
   userTimeZone: string;
   /** 当前登录用户id，未登录可为 undefined */
   userId?: string;
+    /**
+     * 登录态派生标记（user-context 中间件：isLogin = !!req.userId，文档 §7）。
+     * 模板渲染经 locals 消费，不重复解析凭证。
+    */
+    isLogin: boolean;
 };
 
 /**
@@ -76,6 +81,7 @@ export function createWebCtx(req: Request, res: Response): WebContext {
             userLocale: req.userLocale,
             userTimeZone: req.userTimeZone,
             userId: req.userId,
+            isLogin: !!req.userId,
         },
         status: (code) => {
             statusCode = code;

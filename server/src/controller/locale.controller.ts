@@ -49,11 +49,13 @@ export async function renderBody(req: Request, res: Response): Promise<void> {
 
     await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
 
-    const todos = await listTodos(ctx.userContext);
+    const todos = await listTodos(ctx.userContext); // 未登录时 service 层返回空数组（文档 §7 降级）
     await ctx.renderPage(meta.view, {
         title: meta.title,
         todos,
         i18nJson,
+        // 登录态派生标记：模板据此渲染未登录引导面板（文档 §7）
+        isLogin: ctx.userContext.userId !== undefined,
         // 纯 SPA：/body 的 path 参带 /page 前缀，转成浏览器路径('/'、'/list')供 nav 高亮
         currentPage: toClientPath(ctx.query.path || '/'),
         // 外壳 header 显隐与整页渲染口径一致（登录/注册页 false），语言重绘不串台

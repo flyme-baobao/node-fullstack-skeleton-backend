@@ -16,7 +16,10 @@
 /** 常用 HTTP 状态码（值随 HTTP 标准，本项目只登记用到的） */
 export const HTTP_STATUS = {
     BAD_REQUEST: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403,
     NOT_FOUND: 404,
+    CONFLICT: 409,
     INTERNAL_SERVER_ERROR: 500,
 } as const;
 
@@ -29,10 +32,22 @@ export const BUSINESS_CODE = {
     TODO_EMPTY: 40001,
     INVALID_UID: 40002,
     UNSUPPORTED_LANG: 40003,
+    INVALID_PARAMS: 40004, // 必填缺失 / 字段格式非法（鉴权入参等）
+
+    // 401 组：鉴权失败
+    UNAUTHORIZED: 40101, // 未登录（双凭证全无）
+    SESSION_MISMATCH: 40102, // 双凭证 userId 不一致（越权）
+    CREDENTIAL_INVALID: 40103, // 凭证无效 / 账号或密码错误
+
+    // 403 组：禁止访问（预留）
+    FORBIDDEN: 40301,
 
     // 404 组：资源不存在
     TOGGLE_NOT_FOUND: 40401,
     REMOVE_NOT_FOUND: 40402,
+
+    // 409 组：资源冲突
+    ACCOUNT_EXISTS: 40901,
 
     // 500 组：服务端故障
     // 500 业务

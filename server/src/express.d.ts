@@ -31,6 +31,11 @@ declare global {
              * 当前登录用户id（userContext 中间件从 session / token / cookie 解析，未登录可为 undefined）
              */
             userId?: string;
+            /**
+             * 登录态派生标记（user-context 中间件：isLogin = !!req.userId，文档 §7）。
+             * 模板渲染经 locals 消费，不重复解析凭证。
+             */
+            isLogin: boolean;
         }
 
         interface Response {

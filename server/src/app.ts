@@ -5,6 +5,7 @@ import { initI18n } from './i18n/config.js';
 import { i18nRequest, localeBridge } from './middleware/i18n.middleware.js';
 import { requestId } from './middleware/requestId.middleware.js';
 import { userContext } from './middleware/user-context.middleware.js';
+import { authMiddleware } from './middleware/auth.middleware.js';
 import renderPageMiddleware from './middleware/render.middleware.js';
 import {
     injectFragmentFlagMiddleware,
@@ -42,8 +43,15 @@ export async function createApp(): Promise<Express> {
 
     app.use(i18nRequest()); // ① 每请求解析语言，挂 req.t() / req.i18n
 
+    // ①.5 鉴权：白名单放行 + 双凭证校验 + 写 req.userId（文档 §6.1）。
+    // 顺序约束：必须在 i18nRequest() 之后（错误响应需要 req.t 翻译），
+    // 必须在 userContext 之前（isLogin 依赖本层写入的 req.userId）；
+    // 内部全程 asyncHandler：await Redis 之后再 next()，顺序天然成立；Redis 故障转 next(err)。
+    app.use(authMiddleware);
+
     // 每请求挂用户上下文：req.userTimeZone（browser_tz cookie）+ req.userLocale（代理 req.language）；
-    // 依赖 i18next 已探测好 req.language，故必须在 i18nRequest() 之后
+    // 依赖 i18next 已探测好 req.language，故必须在 i18nRequest() 之后；
+    // isLogin 派生自 authMiddleware 写入的 req.userId，故必须在 authMiddleware 之后
     app.use(userContext);
 
     // ② 把 req.t 桥接到 res.locals，EJS 模板（含 partials）才能直接用 <%= t('...') %>

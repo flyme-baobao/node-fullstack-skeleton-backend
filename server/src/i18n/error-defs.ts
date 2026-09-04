@@ -44,6 +44,11 @@ export const ERROR_DEFS = {
         message: 'errors.unsupported_lang',
         status: HTTP_STATUS.BAD_REQUEST
     },
+    invalid_params: {
+        code: BUSINESS_CODE.INVALID_PARAMS,
+        message: 'errors.invalid_params',
+        status: HTTP_STATUS.BAD_REQUEST
+    },
     toggle_not_found: {
         code: BUSINESS_CODE.TOGGLE_NOT_FOUND,
         message: 'errors.toggle_not_found',
@@ -113,6 +118,31 @@ export const ERROR_DEFS = {
         code: BUSINESS_CODE.BAD_REQUEST,
         message: 'errors.bad_request',
         status: HTTP_STATUS.BAD_REQUEST
+    },
+    unauthorized: {
+        code: BUSINESS_CODE.UNAUTHORIZED,
+        message: 'errors.unauthorized',
+        status: HTTP_STATUS.UNAUTHORIZED
+    },
+    session_mismatch: {
+        code: BUSINESS_CODE.SESSION_MISMATCH,
+        message: 'errors.session_mismatch',
+        status: HTTP_STATUS.UNAUTHORIZED
+    },
+    credential_invalid: {
+        code: BUSINESS_CODE.CREDENTIAL_INVALID,
+        message: 'errors.credential_invalid',
+        status: HTTP_STATUS.UNAUTHORIZED
+    },
+    forbidden: {
+        code: BUSINESS_CODE.FORBIDDEN,
+        message: 'errors.forbidden',
+        status: HTTP_STATUS.FORBIDDEN
+    },
+    account_exists: {
+        code: BUSINESS_CODE.ACCOUNT_EXISTS,
+        message: 'errors.account_exists',
+        status: HTTP_STATUS.CONFLICT
     },
     not_found: {
         code: BUSINESS_CODE.NOT_FOUND,

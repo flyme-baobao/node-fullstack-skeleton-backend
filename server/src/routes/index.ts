@@ -2,6 +2,7 @@ import { pagesRouter } from './pages.js';
 import { localeRouter } from './locale.js';
 import { listRouter } from './list.js';
 import { routesManifestRouter } from './routes-manifest.js';
+import { authRouter } from './auth.js';
 import type { Express } from 'express';
 import { notFoundHandler, errorHandler } from '../middleware/error.middleware.js';
 
@@ -15,6 +16,10 @@ import { notFoundHandler, errorHandler } from '../middleware/error.middleware.js
  *   ⚠️ 顺序要求：先挂业务/路由，再 notFoundHandler，最后 errorHandler（必须最后，靠 4 参签名识别）。
  */
 export function mountRoutes(app: Express): void {
+    // 鉴权：注册 / 登录 / me（signup/signin 已在 auth.middleware 白名单放行）
+    app.use('/', authRouter);
+
+    // 业务路由: 整页渲染 / 局部渲染 / 列表数据 / 路由清单 /切换语言
     app.use('/', pagesRouter);
     app.use('/', localeRouter);
     app.use('/', listRouter);

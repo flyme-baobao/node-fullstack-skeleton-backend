@@ -34,5 +34,8 @@ function resolveTimeZone(cookieHeader: string | undefined): string {
 export function userContext(req: Request, _res: Response, next: NextFunction): void {
     req.userTimeZone = resolveTimeZone(req.headers.cookie);
     req.userLocale = req.language;
+    // 登录态派生标记（文档 §7）：authMiddleware 已先行校验凭证并写入 req.userId，
+    // 这里只做布尔派生，不重查凭证；模板渲染经 locals 带给 EJS（未登录降级/引导面板用）
+    req.isLogin = Boolean(req.userId);
     next();
 }

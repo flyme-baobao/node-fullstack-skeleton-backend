@@ -23,11 +23,13 @@ export function createPageHandler(path: string, meta: PageMeta) {
 
         await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
 
-        const todos = await listTodos(ctx.userContext);
+        const todos = await listTodos(ctx.userContext); // 未登录时 service 层返回空数组（文档 §7 降级）
         await ctx.renderPage(meta.view, {
             title: meta.title,
             todos,
             i18nJson,
+            // 标记是否登录
+            isLogin: ctx.userContext.isLogin,
             // 纯 SPA：路由 key 带 /page 前缀，转成浏览器路径('/'、'/list')供 nav 高亮
             currentPage: toClientPath(path),
             // 外壳 header 显隐由页面注册表驱动（登录/注册页 false）
