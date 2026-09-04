@@ -26,10 +26,10 @@
         "account_placeholder": "Username / email or phone",
         "email_or_phone_hint": "Email and phone are both optional — may be left blank",
         "password_mismatch": "Passwords do not match",
-        "username_invalid": "Username must be 6-80 letters, digits or underscores (no spaces)",
+        "username_invalid": "Username must be 3-80 chars: letters (any language, e.g. Chinese), digits or underscores — no spaces or special characters",
         "email_invalid": "Invalid email address",
         "phone_invalid": "Phone must be an 11-digit mobile (starting 1) or a 0-prefixed landline (area-code-number, dash optional)",
-        "password_invalid": "Password must be 8-72 chars with upper, lower, digit and symbol",
+        "password_invalid": "Password must be 8-72 chars with letter, digit and symbol",
         "account_invalid": "Invalid account",
 
         "password": "Password",

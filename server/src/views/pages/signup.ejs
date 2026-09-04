@@ -20,12 +20,12 @@
         </p>
 
         <form class="mt-6 space-y-4" method="post" data-auth-form="signup">
-            <!-- user_name：必填（users.user_name NOT NULL），6-80 字符，字符集不限 -->
+            <!-- user_name：必填（users.user_name NOT NULL），3-80 字符，字符集不限 -->
             <div>
                 <label for="signup-username" class="mb-1.5 block text-sm font-medium text-gray-700">
                     <%= t('auth.username') %> <span class="text-rose-500">*</span>
                 </label>
-                <input id="signup-username" name="user_name" type="text" required minlength="6" maxlength="80"
+                <input id="signup-username" name="user_name" type="text" required minlength="3" maxlength="80"
                     autocomplete="username" placeholder="<%= t('auth.username_placeholder') %>"
                     class="input" />
             </div>

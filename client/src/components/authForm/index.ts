@@ -31,28 +31,21 @@ export function initAuthFormValidation(): void {
     bound = true;
 
     // 输入：清错并对注册表单非空字段做即时格式校验
+    // 输入：即时格式校验。注意中文输入法的组合阶段（拼音/候选选择）会高频触发 input，
+    // 但组合中 value 是未确认的组合稿，此时校验会误报 + 频繁闪错；用 isComposing 跳过，
+    // 组合结束后由 compositionend 事件补一次最终校验。
     document.addEventListener('input', (e) => {
         const input = e.target;
         if (!(input instanceof HTMLInputElement)) return;
-        const form = input.form;
-        if (form?.dataset.authForm !== 'signup') {
-            // 非注册表单：只清错不动
-            clearFieldError(input);
-            return;
-        }
-        const name = input.name;
-        const inputValue = input.value;
-        if (!inputValue || name === FORM_FIELD_NAME.CONFIRM_PASSWORD) {
-            // 空值 / confirm 字段：即时格式校验不适用，先清错（confirm 一致性走 blur）
-            clearFieldError(input);
-            return;
-        }
-        const rule = SIGNUP_FIELD_RULES[name];
-        if (rule && !rule.validate(inputValue)) {
-            showFieldError(input, t(rule.errorKey));
-        } else {
-            clearFieldError(input);
-        }
+        if (e.isComposing) return; // 输入法组合中：跳过即时校验
+        validateFieldOnInput(input);
+    });
+
+    // 中文输入组合结束：input 阶段可能被 isComposing 跳过，这里补一次，确保收尾校验生效
+    document.addEventListener('compositionend', (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        validateFieldOnInput(input);
     });
 
     // confirm_password 一致性 → blur（失焦时再比对，避免输入过程中就报错）
@@ -102,14 +95,41 @@ function handleSubmit(e: SubmitEvent): void {
     console.info('[authForm] 客户端校验通过；鉴权 API 未接线，暂不提交');
 }
 
-/** 在输入框所在字段块末尾插入错误提示，并给输入框打失败态（aria-invalid + 描边） */
+/** 注册表单字段的即时格式校验（input / compositionend 共用）。非注册字段仅清错 */
+function validateFieldOnInput(input: HTMLInputElement): void {
+    const form = input.form;
+    const name = input.name;
+    if (form?.dataset.authForm !== 'signup') {
+        // 非注册表单：只清错不动
+        clearFieldError(input);
+        return;
+    }
+    const inputValue = input.value;
+    if (!inputValue || name === FORM_FIELD_NAME.CONFIRM_PASSWORD) {
+        // 空值 / confirm 字段：即时格式校验不适用，先清错（confirm 一致性走 blur）
+        clearFieldError(input);
+        return;
+    }
+    const rule = SIGNUP_FIELD_RULES[name];
+    if (rule && !rule.validate(inputValue)) {
+        showFieldError(input, t(rule.errorKey));
+    } else {
+        clearFieldError(input);
+    }
+}
+
+/** 显示（或更新）输入框错误提示。已有提示则复用节点仅改文本，避免每次输入都重建 <p> 造成闪屏 */
 function showFieldError(input: HTMLInputElement, message: string): void {
-    clearFieldError(input); // 先清旧提示，防重复叠加
-    const tip = document.createElement('p');
-    tip.className = ERROR_TEXT_CLASS;
-    tip.setAttribute(ERROR_ATTR, '');
+    const fieldBlock = input.closest('div');
+    // 幂等：若已存在 data-auth-error，只更新文本，不重复 append（防止 input 事件里 删/建 抖动）
+    let tip = fieldBlock?.querySelector(`[${ERROR_ATTR}]`) as HTMLElement | null;
+    if (!tip) {
+        tip = document.createElement('p');
+        tip.className = ERROR_TEXT_CLASS;
+        tip.setAttribute(ERROR_ATTR, '');
+        fieldBlock?.appendChild(tip);
+    }
     tip.textContent = message;
-    input.closest('div')?.appendChild(tip);
 
     input.setAttribute('aria-invalid', 'true');
     input.classList.add(INVALID_RING_CLASS);
