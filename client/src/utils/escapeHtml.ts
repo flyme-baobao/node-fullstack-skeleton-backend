@@ -1,4 +1,4 @@
-import { t } from '../i18n/i18n';
+import { t } from '@/i18n/translate';
 
 /**
  * 转义 HTML，避免外部文本（用户输入 / 待办标题等）把人注入到 DOM 结构里（防 XSS 注入）。

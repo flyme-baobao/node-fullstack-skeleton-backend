@@ -1,5 +1,5 @@
-import { escapeHtml } from '../utils/escapeHtml';
-import { loadTemplate } from '../templates/templates';
+import { escapeHtml } from '@utils/escapeHtml';
+import { loadTemplate } from '@/templates';
 
 /**
  * 全局 Toast 提示 —— 纯 UI 组件。

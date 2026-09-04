@@ -1,8 +1,8 @@
-import { PAGE_PREFIX } from '../constants/api';
-import { ROOT_SELECTOR } from '../constants/dom';
+import { PAGE_PREFIX } from '@constants/api';
+import { ROOT_SELECTOR } from '@constants/dom';
 import { isValidPath } from './routes';
-import { showToast, ToastVariant } from '../components/toast';
-import { hideGlobalLoading } from '../components/loading';
+import { showToast, ToastVariant } from '@components/toast';
+import { hideGlobalLoading } from '@components/loading';
 
 /**
  * 轻量 SPA 路由：把 `#root` 内容换成 `${PAGE_PREFIX}/path` fragment。

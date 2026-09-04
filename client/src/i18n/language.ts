@@ -1,8 +1,9 @@
-import { showToast, ToastVariant } from '../components/toast';
-import { t } from './i18n';
-import { PAGE_PREFIX, API_PREFIX } from '../constants/api';
-import { ROOT_SELECTOR } from '../constants/dom';
-import { hideGlobalLoading, showGlobalLoading } from '../components/loading';
+import { showToast, ToastVariant } from '@components/toast';
+import { t } from './translate';
+import { PAGE_PREFIX, API_PREFIX } from '@constants/api';
+import { changeLanguage } from '@api/language.api';
+import { ROOT_SELECTOR } from '@constants/dom';
+import { hideGlobalLoading, showGlobalLoading } from '@components/loading';
 
 /**
  * 自定义语言切换下拉菜单（归属 i18n 内聚目录）。
@@ -14,7 +15,6 @@ import { hideGlobalLoading, showGlobalLoading } from '../components/loading';
  *
  * 本模块不携带副作用，由入口（bootstrap）显式调用：
  *  - initLanguageSwitcher()：绑定语言菜单（幂等）；整块替换后的重绑由 htmx afterSwap 统一触发本函数
- *  - initLanguagePack()：拉取当前语言包，注入 window.I18n
  */
 const CONTAINER_SELECTOR = '.change-language';
 // 每个容器只绑定一次：防止 initLanguageSwitcher 被重复调用时重复 addEventListener 造成事件叠加。
@@ -92,46 +92,12 @@ export function initLanguageSwitcher(): void {
     });
 }
 
-/**
- * 拉取「当前语言」的语言包并注入 window.I18n（纯 SPA 首屏用）。
- * shell(index.html) 是 Vite 输出的静态文件，无法像旧 SSR 那样由服务端模板注入语言包；
- * 页面正文文案由服务端 EJS 渲染，此处只服务前端 JS 内的 t()（如 toast）。
- */
-export async function initLanguagePack(): Promise<void> {
-    try {
-        const res = await fetch(`${API_PREFIX}/i18n`);
-        if (res.ok) {
-            const data = (await res.json()) as {
-                lang: string;
-                i18nJson?: StringMap;
-            };
-            if (data.i18nJson) {
-                window.I18n = data.i18nJson;
-                document.documentElement.lang = data.lang;
-            }
-        }
-    } catch (error) {
-        console.error('获取当前语言包失败', error);
-        showToast(t('toast.get_current_language_failed'), ToastVariant.Error);
-    }
-}
-
 async function switchLanguage(lang: string): Promise<void> {
     showGlobalLoading();
     const htmx = window.htmx;
     // 1. POST 设 cookie，并拿回 { i18nJson, isSuccess }
     try {
-        const res = await fetch(`${API_PREFIX}/change-language`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lang }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { i18nJson?: StringMap; isSuccess?: boolean };
-        // 重新赋值全局文案（供后续直接用，/body 刷新会重绘 DOM 再以此为准）
-        if (data.isSuccess && data.i18nJson) {
-            window.I18n = data.i18nJson;
-        }
+        await changeLanguage(lang);
     } catch (e) {
         console.error('切换语言失败', e);
         showToast(t('toast.change_language_failed'), ToastVariant.Error);

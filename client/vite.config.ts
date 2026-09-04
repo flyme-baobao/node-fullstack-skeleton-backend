@@ -130,5 +130,17 @@ export default defineConfig(({ mode }) => {
                 },
             },
         },
+        resolve: {
+            alias: {
+                '@': path.resolve(__dirname, './src'),
+                '@api': path.resolve(__dirname, './src/api'),
+                '@components': path.resolve(__dirname, './src/components'),
+                '@constants': path.resolve(__dirname, './src/constants'),
+                '@i18n': path.resolve(__dirname, './src/i18n'),
+                '@router': path.resolve(__dirname, './src/router'), 
+                '@templates': path.resolve(__dirname, './src/templates'),
+                '@utils': path.resolve(__dirname, './src/utils'),
+            },
+        },
     };
 });

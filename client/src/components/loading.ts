@@ -1,6 +1,6 @@
 import './loading.scss';
-import { loadTemplate } from '../templates/templates';
-import { t } from '../i18n/i18n';
+import { loadTemplate } from '@/templates';
+import { t } from '@/i18n/translate';
 
 /**
  * 请求 Loading 组件 —— 两种形态，按场景选用：

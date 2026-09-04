@@ -1,5 +1,5 @@
-import { escapeHtml } from '../utils/escapeHtml';
-import { loadTemplate } from '../templates/templates';
+import { escapeHtml } from '@utils/escapeHtml';
+import { loadTemplate } from '@/templates';
 
 /**
  * 确认弹窗 + htmx:confirm 拦截模块。

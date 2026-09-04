@@ -8,7 +8,7 @@
  *  - API未对接时拦截提交防止404，接口上线移除handleSubmit内TODO兜底。
  * 启动调用 initAuthFormValidation()，模块bound开关保证幂等。
  */
-import { t } from '@/i18n/translate';
+import { t } from '../../i18n/translate';
 import {
     FORM_FIELD_NAME,
     SIGNUP_FIELD_RULES,

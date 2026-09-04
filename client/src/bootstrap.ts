@@ -1,4 +1,4 @@
-import { initLoadingTemplate, showGlobalLoading, hideGlobalLoading } from './components/loading';
+import { initLoadingTemplate, showGlobalLoading, hideGlobalLoading } from '@components/loading';
 /**
  * 应用启动装配入口，DOMContentLoaded 里按序执行：
  *  0. initLoadingTemplate()   预载视口遮罩模板（幂等，为同步上屏铺路）
@@ -20,10 +20,10 @@ async function bootstrap(): Promise<void> {
     // 视口覆盖遮罩（同步上屏）：此刻语言包尚未回填，文案沿用模板内置（见 components/loading.ts）
     showGlobalLoading();
 
-    const { initLanguagePack } = await import('./i18n/language');
-    const { initHtmx } = await import('./htmx/htmx');
-    const { setupSpaRouter } = await import('./router/spaRouter');
-    const { loadRoutes } = await import('./router/routes');
+    const { initLanguagePack } = await import('@api/language.api');
+    const { initHtmx } = await import('./htmx');
+    const { setupSpaRouter } = await import('@router/spaRouter');
+    const { loadRoutes } = await import('@router/routes');
 
     try {
         // 首屏 #root 为空壳无容器可绑（见文件头注），此处无需 initLanguageSwitcher

@@ -1,4 +1,4 @@
-import { API_PREFIX } from '../constants/api';
+import { getSpaRoutes } from '@api/routes.api';
 
 export interface RoutesManifest {
     valid: string[];
@@ -22,8 +22,8 @@ export function isValidPath(path: string): boolean {
 /** 运行时拉取合法路由清单并缓存；失败时置为 null（守卫退化为放行），不抛出。 */
 export async function loadRoutes(): Promise<void> {
     try {
-        const res = await fetch(`${API_PREFIX}/__routes`);
-        if (!res.ok) throw new Error(`routes fetch ${res.status}`);
+        const res = await getSpaRoutes();
+        if (!res.ok) throw new Error(`Get SPA routes ${res.status}`);
         const data = (await res.json()) as RoutesManifest;
         if (!Array.isArray(data.valid)) throw new Error('invalid manifest');
         manifest = { valid: data.valid, base: data.base ?? '/' };
