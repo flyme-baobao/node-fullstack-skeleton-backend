@@ -30,6 +30,8 @@ export function createPageHandler(path: string, meta: PageMeta) {
             i18nJson,
             // 纯 SPA：路由 key 带 /page 前缀，转成浏览器路径('/'、'/list')供 nav 高亮
             currentPage: toClientPath(path),
+            // 外壳 header 显隐由页面注册表驱动（登录/注册页 false）
+            showHeader: meta.showHeader,
             // 渲染链：内容 -> app-layout 应用外壳（页面片段，注入 SPA 静态壳 index.html 的 #root）
             layouts: [{ tplName: 'layouts/app-layout', slotKey: 'outletContent' }],
         });

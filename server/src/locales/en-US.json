@@ -11,6 +11,38 @@
         "stats": "Overview",
         "lang": "Language"
     },
+    "auth": {
+        "signin_title": "Welcome back",
+        "signin_subtitle": "Sign in to TaskFlow to keep managing your to-dos",
+        "signup_title": "Create your account",
+        "signup_subtitle": "Sign up for TaskFlow and start managing your to-dos",
+        "email": "Email",
+        "email_placeholder": "you@example.com",
+        "username": "Username",
+        "username_placeholder": "3-80 characters, can be used to sign in",
+        "phone": "Phone number",
+        "phone_placeholder": "For sign-in and account recovery",
+        "account": "Account",
+        "account_placeholder": "Username / email or phone",
+        "email_or_phone_hint": "Email and phone are both optional — may be left blank",
+        "password_mismatch": "Passwords do not match",
+        "username_invalid": "Username must be 6-80 letters, digits or underscores (no spaces)",
+        "email_invalid": "Invalid email address",
+        "phone_invalid": "Phone must be an 11-digit mobile (starting 1) or a 0-prefixed landline (area-code-number, dash optional)",
+        "password_invalid": "Password must be 8-72 chars with upper, lower, digit and symbol",
+        "account_invalid": "Invalid account",
+
+        "password": "Password",
+        "password_placeholder": "Enter your password",
+        "confirm_password": "Confirm password",
+        "confirm_password_placeholder": "Enter your password again",
+        "signin_action": "Sign in",
+        "signup_action": "Sign up",
+        "to_signup": "No account yet?",
+        "to_signup_action": "Sign up now →",
+        "to_signin": "Already have an account?",
+        "to_signin_action": "Sign in instead →"
+    },
     "hero": {
         "title": "Get things done, task by task",
         "description": "Add, mark complete — every update goes through a <code class=\"rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-emerald-700\">htmx</code> partial refresh, no full page reload. Try adding one."

@@ -9,58 +9,63 @@
 --          前端 Intl 按用户时区格式化，见 server/src/utils/userTime.ts
 -- ============================================================
 
--- 待办表
-CREATE TABLE IF NOT EXISTS todos (
-    id          SERIAL PRIMARY KEY,
-    uid         UUID NOT NULL DEFAULT gen_random_uuid(),
-    text        VARCHAR(280) NOT NULL,
-    done        BOOLEAN NOT NULL DEFAULT false,
-    created_at  TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMPTZ(3) NOT NULL,
-    is_deleted  BOOLEAN NOT NULL DEFAULT false
-);
-
--- 为 todos 补对外标识 uid 列（幂等）：已存在则跳过。可空补列（O(1) 元数据操作，不重写表）；
--- 存量 NULL 行的回填与 NOT NULL 收紧由 db-init.js 在结构就绪后执行（见该文件「回填对外标识」节）
--- SET DEFAULT 保证后续 INSERT 不带该列（create.sql 约定）也能自动生成
-ALTER TABLE todos ADD COLUMN IF NOT EXISTS uid UUID;
-ALTER TABLE todos ALTER COLUMN uid SET DEFAULT gen_random_uuid();
-
--- uid 对外唯一索引（查找走它；建在 id 上的 PK 只作内部主键）
-CREATE UNIQUE INDEX IF NOT EXISTS todos_uid_key ON todos (uid);
+-- 建表顺序说明：
+--   1. 用户状态枚举（users.status 引用它）
+--   2. users 表（todos.user_id 外键引用它，故 users 必须先建）
+--   3. todos 表（表内联外键 REFERENCES users，顺序已满足）
+--   4. 各类索引/唯一索引
 
 -- 用户状态枚举；DO 块兜底「类型已存在」实现幂等
 DO $$
 BEGIN
     CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+
+EXCEPTION WHEN duplicate_object THEN NULL;
+
 END $$;
 
--- 用户表
 CREATE TABLE IF NOT EXISTS users (
-    id             SERIAL PRIMARY KEY,
-    user_id        UUID NOT NULL DEFAULT gen_random_uuid(),
-    email          VARCHAR(191) NOT NULL,
-    user_name      VARCHAR(80),
-    phone_number   VARCHAR(32),
-    password_hash  VARCHAR(255),
-    status         "UserStatus" NOT NULL DEFAULT 'ACTIVE',
-    created_at     TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMPTZ(3) NOT NULL
+    id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL DEFAULT gen_random_uuid (),
+    user_name VARCHAR(80) NOT NULL,
+    email VARCHAR(191),
+    phone_number VARCHAR(32),
+    password_hash VARCHAR(255),
+    status "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ(3) NOT NULL
 );
 
-
--- 为 users 补对外标识 user_id 列（幂等）：已存在则跳过。可空补列（O(1)，存量行存在时不能一步加 NOT NULL）；
--- 存量 NULL 行的回填与 NOT NULL 收紧由 db-init.js 在结构就绪后执行（见该文件「回填对外标识」节）
--- SET DEFAULT 保证后续 INSERT 不带该列也能自动生成
-ALTER TABLE users ADD COLUMN IF NOT EXISTS user_id UUID;
-ALTER TABLE users ALTER COLUMN user_id SET DEFAULT gen_random_uuid();
-
--- user_id 对外唯一索引（查找走它；建在 id 上的 PK 只作内部主键）
+-- 唯一索引
 CREATE UNIQUE INDEX IF NOT EXISTS users_user_id_key ON users (user_id);
 
--- 唯一索引
-CREATE UNIQUE INDEX IF NOT EXISTS users_email_key        ON users (email);
-CREATE UNIQUE INDEX IF NOT EXISTS users_user_name_key    ON users (user_name);
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_key ON users (email);
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_user_name_key ON users (user_name);
+
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_number_key ON users (phone_number);
+
+-- 待办表
+-- todos→users 外键用内联约束：users 表已在上方创建，REFERENCES 合法；
+-- 外键目标 users.user_id 有唯一索引（users_user_id_key），满足 FK 引用要求；
+-- ON DELETE CASCADE：删除用户时级联删除其待办。
+CREATE TABLE IF NOT EXISTS todos (
+    id          SERIAL PRIMARY KEY,
+    uid         UUID NOT NULL DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL,
+    text        VARCHAR(280) NOT NULL,
+    done        BOOLEAN NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ(3) NOT NULL,
+    is_deleted  BOOLEAN NOT NULL DEFAULT false,
+
+-- 表内定义外键约束，关联 users.user_id
+    CONSTRAINT fk_todos_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- uid 对外唯一索引（查找走它；建在 id 上的 PK 只作内部主键）
+CREATE UNIQUE INDEX IF NOT EXISTS todos_uid_key ON todos (uid);
+
+-- 给 user_id 建索引，按用户查待办会非常频繁，不加索引全表扫描
+CREATE INDEX IF NOT EXISTS idx_todos_user_id ON todos (user_id);

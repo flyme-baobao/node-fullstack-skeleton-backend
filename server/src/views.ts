@@ -11,14 +11,21 @@ import { PAGE_PREFIX } from './constants/api.js';
 export interface PageMeta {
     view: string;
     title: string;
+    /** 是否渲染应用外壳 header（登录/注册页隐藏，缺省 true，见 app-layout.ejs） */
+    showHeader?: boolean;
 }
 
 const INDEX_PATH = `${PAGE_PREFIX}`; // 首页 /page/ 或 /page
 const LIST_PATH = `${PAGE_PREFIX}/list`; // 待办清单页 /page/list
+const SIGNIN_PATH = `${PAGE_PREFIX}/signin`; // 登录页 /page/signin
+const SIGNUP_PATH = `${PAGE_PREFIX}/signup`; // 注册页 /page/signup
 
 export const PAGE_META: Record<string, PageMeta> = {
     [INDEX_PATH]: { view: 'pages/index', title: 'htmx Study' },
     [LIST_PATH]: { view: 'pages/listPage', title: '待办清单 - htmx Study' },
+    // 登录/注册页：隐藏应用外壳 header（页面自带品牌位），浏览器路径 /signin、/signup
+    [SIGNIN_PATH]: { view: 'pages/signin', title: '登录 - TaskFlow', showHeader: false },
+    [SIGNUP_PATH]: { view: 'pages/signup', title: '注册 - TaskFlow', showHeader: false },
 };
 
 export const CLIENT_PATHS = Object.keys(PAGE_META).map(path => toClientPath(path));

@@ -1,0 +1,81 @@
+<%#
+    注册页主体，注入布局#outlet。PAGE_META配置showHeader:false隐藏顶部导航，自带品牌与页间跳转入口。
+    对齐users表：user_name、password、confirm_password必填；email、phone_number选填。
+    必填规则使用HTML原生约束；密码一致性由authForm.ts全局委托校验。
+    暂拦截表单提交，等待/api/auth/signup接口对接。
+%>
+<div class="flex min-h-[70vh] items-center justify-center">
+    <section class="card w-full max-w-md border border-gray-100 p-8">
+        <!-- 品牌位：header 已隐藏，登录态外页面在此自呈现 -->
+        <a href="/" class="mx-auto flex w-fit items-center gap-2 font-bold text-emerald-600">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">✓</span>
+            <span class="tracking-tight text-gray-800">TaskFlow</span>
+        </a>
+
+        <h2 class="mt-8 text-2xl font-bold tracking-tight text-gray-900">
+            <%= t('auth.signup_title') %>
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+            <%= t('auth.signup_subtitle') %>
+        </p>
+
+        <form class="mt-6 space-y-4" method="post" data-auth-form="signup">
+            <!-- user_name：必填（users.user_name NOT NULL），6-80 字符，字符集不限 -->
+            <div>
+                <label for="signup-username" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.username') %> <span class="text-rose-500">*</span>
+                </label>
+                <input id="signup-username" name="user_name" type="text" required minlength="6" maxlength="80"
+                    autocomplete="username" placeholder="<%= t('auth.username_placeholder') %>"
+                    class="input" />
+            </div>
+            <!-- email / phone_number：可选字段，均不加 required（由 authForm.ts 提交时统一校验） -->
+            <div>
+                <label for="signup-email" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.email') %>
+                </label>
+                <input id="signup-email" name="email" type="email" maxlength="191"
+                    autocomplete="email" placeholder="<%= t('auth.email_placeholder') %>"
+                    class="input" />
+            </div>
+            <div>
+                <label for="signup-phone" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.phone') %>
+                </label>
+                <input id="signup-phone" name="phone_number" type="tel" maxlength="32"
+                    autocomplete="tel" placeholder="<%= t('auth.phone_placeholder') %>"
+                    class="input" />
+                <p class="mt-1.5 text-sm text-gray-500">
+                    <%= t('auth.email_or_phone_hint') %>
+                </p>
+            </div>
+            <!-- 密码：8-72；上限 72 对齐 bcrypt 72 字节限制 -->
+            <div>
+                <label for="signup-password" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.password') %> <span class="text-rose-500">*</span>
+                </label>
+                <input id="signup-password" name="password" type="password" required minlength="8" maxlength="72"
+                    autocomplete="new-password" placeholder="<%= t('auth.password_placeholder') %>"
+                    class="input" />
+            </div>
+            <div>
+                <label for="signup-confirm" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.confirm_password') %> <span class="text-rose-500">*</span>
+                </label>
+                <input id="signup-confirm" name="confirm_password" type="password" required minlength="8" maxlength="72"
+                    autocomplete="new-password" placeholder="<%= t('auth.confirm_password_placeholder') %>"
+                    class="input" />
+            </div>
+            <button type="submit" class="btn-primary w-full">
+                <%= t('auth.signup_action') %>
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-500">
+            <%= t('auth.to_signin') %>
+            <a href="/signin" class="font-medium text-emerald-600 hover:text-emerald-500">
+                <%= t('auth.to_signin_action') %>
+            </a>
+        </p>
+    </section>
+</div>

@@ -29,6 +29,10 @@ async function bootstrap(): Promise<void> {
         // 首屏 #root 为空壳无容器可绑（见文件头注），此处无需 initLanguageSwitcher
         await initLanguagePack();
 
+        // 认证表单客户端校验：document 级委托，注册一次即覆盖 SPA swap 后的动态表单
+        const { initAuthFormValidation } = await import('./components/authForm');
+        initAuthFormValidation();
+
         // 预热合法路由清单：供 SPA 路由守卫用。失败不影响启动（守卫放行）
         await loadRoutes();
 

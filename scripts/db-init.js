@@ -75,12 +75,14 @@ function renderSql(template, vars) {
  *      一次 UPDATE 只回填一批，紧接着 SET NOT NULL 必失败；脚本可以循环回填到 0 行再收紧，真正收敛；
  *   3. 对表近空的场景（当前演示数据），检测到 0 个 NULL 行即零开销跳过。
  *
- * 收敛对象：todos.uid / users.user_id（对外查找键，CREATE TABLE 已自带则无需任何操作）。
- * 软删过滤：仅对带 is_deleted 列的表（如 todos）生效，users 等无该列的表不做此过滤。
+ * 收敛对象：比如 todos.uid（对外查找键，CREATE TABLE 已自带则无需任何操作）。
+ * 示例对象： { table: 'todos', column: 'uid', value: 'gen_random_uuid()'},
+ * 软删过滤：仅对带 is_deleted 列的表（如 todos）生效。
  */
 const IDENTITY_COLUMNS = [
-    { table: 'todos', column: 'uid' },
-    { table: 'users', column: 'user_id' },
+    // 业务预留：后续新增对外标识列（UUID）时在此登记回填对象。
+    // 示例：{ table: 'todos', column: 'uid', value: 'gen_random_uuid()' }
+    // 目前无待回填列，保持为空数组（零开销跳过回填）。
 ];
 const BACKFILL_BATCH = 1000;
 
@@ -91,7 +93,7 @@ async function backfillIdentityColumns() {
     const countMissingSqlTpl = loadSql(path.resolve(migrateSqlPath, 'count-missing.sql'));
     const batchSqlTpl = loadSql(path.resolve(migrateSqlPath, 'backfill-batch.sql'));
     const setNotNullSqlTpl = loadSql(path.resolve(migrateSqlPath, 'set-not-null.sql'))
-    for (const { table, column } of IDENTITY_COLUMNS) {
+    for (const { table, column, value } of IDENTITY_COLUMNS) {
         // 该表是否有软删列（若无则视为「未删除」直通回填）
         const { rows: colRows } = await pool.query(
             probeSoftDeleteSql,
@@ -114,7 +116,7 @@ async function backfillIdentityColumns() {
             const batchSql = renderSql(batchSqlTpl, {
                 TABLE: table,
                 COLUMN: column,
-                VALUE_EXPR: 'gen_random_uuid()',
+                VALUE_EXPR: value,
                 WHERE_CLAUSE: whereClause,
                 BATCH_LIMIT: String(BACKFILL_BATCH)
             })
@@ -138,8 +140,19 @@ async function backfillIdentityColumns() {
 }
 
 try {
-    await backfillIdentityColumns();
-    console.log('[db:init] 对外标识列回填完成（todos.uid / users.user_id → NOT NULL）');
+    const identityColumnsLen = IDENTITY_COLUMNS.length;
+    if (identityColumnsLen) {
+        await backfillIdentityColumns();
+        let finishInfo = IDENTITY_COLUMNS.reduce((pre, cur, index) => {
+            pre = `${cur.table}.${cur.column}`
+            if (index < identityColumnsLen - 1) {
+                pre += ' /'
+            }
+            return pre;
+        }, '')
+        finishInfo += ' → NOT NULL'
+        console.log(`[db:init] 对外标识列回填完成 (${finishInfo}) )`);
+    }
 } catch (err) {
     console.error('[db:init] 回填失败：', err instanceof Error ? err.message : String(err));
     process.exit(1);

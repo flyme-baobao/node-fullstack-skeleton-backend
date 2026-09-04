@@ -161,6 +161,30 @@ UUID 不可预测，对外一律用它定位行。controller 层用 UUID 正则�
 
 新增行不写 uid：INSERT 不带该列，走表默认值 `gen_random_uuid()` 生成，`RETURNING` 带回。
 
+### 索引与约束命名规范
+
+所有手上写的索引 / 约束必须套下面三套模板（不含 PK / 自增 id：那个由 `SERIAL PRIMARY KEY` 自动命名，内部用不对外契约），统一靠命名自解释目的：
+
+| 类型 | 命名模板 | init.sql 实况示例 |
+|------|----------|-------------------|
+| 普通索引 | `idx_表名_字段名` | `idx_todos_user_id`（按用户筛待办，查询加速） |
+| 唯一索引 | `表名_字段名_key` | `todos_uid_key`、`users_user_name_key`、`users_email_key`、`users_phone_number_key` |
+| 外键约束 | `fk_表名_字段名` | `fk_todos_user`（`todos.user_id → users.user_id`） |
+
+**`CREATE [UNIQUE] INDEX` 的判别标准——不是「当前值重不重复」，而是「取值能否重复」：**
+
+1. 该列（或组合）在语义上必须是候选键/唯一业务键 → **加 `UNIQUE`**，命名走 `表名_字段名_key`。典型：对外查找键（`todos.uid`）、登录三候选键（`users.email` / `users.user_name` / `users.phone_number`）。
+2. 只是**纯查询加速**、取值天然可重复（如 `todos.user_id` 一个用户多条待办）→ **不加 `UNIQUE`**，命名走 `idx_表名_字段名`。
+
+两条判断纪律：
+
+- 空表新库最容易踩坑——现在没数据 ≠ 列值唯一，判别看**业务语义**而非当前行数：`email` / `user_name` 是登录标识，天然唯一，即便现在一条数据都没有也该建唯一索引，让 DB 从源头兜住重复，不依赖应用层 SELECT 后手工判重（应用层判双重有并发竞态，DB 唯一约束才原子）；
+- 加 `UNIQUE` 意味着该列**绝不允许重复值**。若将来语义可能要重复（历史、修改、状态列），一开始就不该建 UNIQUE，宁可后续再补，也别先建错后被迫拆——拆唯一索引/降级普通索引要清理存量脏数据，返工大。
+
+> `CREATE UNIQUE INDEX IF NOT EXISTS name ON table(col);` 单独建唯一索引，与表内列取 `UNIQUE` 约束效果等价（都生成唯一索引）。本仓库倾向单独 `CREATE UNIQUE INDEX` 而不在列上写 `UNIQUE`，一是和普通索引写法对齐、一眼可辨类型，二是不进建表块、单独列文档化位置清晰。
+
+外键约束默认会被 PG 自动命名成 `表名_被引表名_fkey`（如 `todos_users_fkey`），与手写模板不一致；要在建表时显式控制名字，就用表内联 `CONSTRAINT fk_表名_字段 FOREIGN KEY ...`（init.sql 的 `CONSTRAINT fk_todos_user ...` 即此写法），命名统一走 `fk_` 模板。
+
 ### 改表结构的约定（无自动 diff，需人工同步）
 
 本项目不使用自动 diff 的迁移工具，表结构变更需人工同步，约定如下：

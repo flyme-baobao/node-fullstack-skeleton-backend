@@ -1,0 +1,51 @@
+<%#
+    登录页主体，注入布局#outlet。PAGE_META配置showHeader:false隐藏顶部导航，自带品牌与页间跳转入口。
+    登录输入框支持user_name/email/phone_number三选一，后端按特征判断查询字段；maxlength=191取数据库最大列长度，密码必填。
+    表单必填规则由HTML原生约束处理；authForm.ts暂拦截提交，等待/api/auth/signin接口对接。
+%>
+<div class="flex min-h-[70vh] items-center justify-center">
+    <section class="card w-full max-w-md border border-gray-100 p-8">
+        <!-- 品牌位：header 已隐藏，登录态外页面在此自呈现 -->
+        <a href="/" class="mx-auto flex w-fit items-center gap-2 font-bold text-emerald-600">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">✓</span>
+            <span class="tracking-tight text-gray-800">TaskFlow</span>
+        </a>
+
+        <h2 class="mt-8 text-2xl font-bold tracking-tight text-gray-900">
+            <%= t('auth.signin_title') %>
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+            <%= t('auth.signin_subtitle') %>
+        </p>
+
+        <form class="mt-6 space-y-4" method="post" data-auth-form="signin">
+            <!-- 账号：user_name / email / phone_number 三选一，单输入框，服务端按值特征路由 -->
+            <div>
+                <label for="signin-account" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.account') %> <span class="text-rose-500">*</span>
+                </label>
+                <input id="signin-account" name="account" type="text" required maxlength="191"
+                    autocomplete="username" placeholder="<%= t('auth.account_placeholder') %>"
+                    class="input" />
+            </div>
+            <div>
+                <label for="signin-password" class="mb-1.5 block text-sm font-medium text-gray-700">
+                    <%= t('auth.password') %> <span class="text-rose-500">*</span>
+                </label>
+                <input id="signin-password" name="password" type="password" required maxlength="72"
+                    autocomplete="current-password" placeholder="<%= t('auth.password_placeholder') %>"
+                    class="input" />
+            </div>
+            <button type="submit" class="btn-primary w-full">
+                <%= t('auth.signin_action') %>
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-500">
+            <%= t('auth.to_signup') %>
+            <a href="/signup" class="font-medium text-emerald-600 hover:text-emerald-500">
+                <%= t('auth.to_signup_action') %>
+            </a>
+        </p>
+    </section>
+</div>
