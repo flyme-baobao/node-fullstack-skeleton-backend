@@ -24,10 +24,9 @@
 
     <form class="loading-region mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos" hx-target="#todo-list"
         hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()">
-        <!-- <input type="text" name="text" required data-required="<%= t('validation.required') %>" -->
-        <input type="text" name="text" data-required="<%= t('validation.required') %>"
-            oninvalid="this.setCustomValidity(this.dataset.requiredMsg)"
-            oninput="this.setCustomValidity('')" placeholder="<%= t('todos.placeholder') %>"
+        <!-- <input type="text" name="text" required data-required-msg="<%= t('validation.required') %>" -->
+        <input type="text" name="text" data-required-msg="<%= t('validation.required') %>"
+            placeholder="<%= t('todos.placeholder') %>"
             class="input sm:flex-1" />
         <button type="submit" class="btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"

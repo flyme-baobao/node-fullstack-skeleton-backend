@@ -12,39 +12,41 @@
         </a>
 
         <h2 class="mt-8 text-2xl font-bold tracking-tight text-gray-900">
-            <%= t('auth.signin_title') %>
+            <%= t('auth.ui.signin_title') %>
         </h2>
         <p class="mt-1 text-sm text-gray-500">
-            <%= t('auth.signin_subtitle') %>
+            <%= t('auth.ui.signin_subtitle') %>
         </p>
 
         <form class="mt-6 space-y-4" method="post" data-auth-form="signin">
             <!-- 账号：user_name / email / phone_number 三选一，单输入框，服务端按值特征路由 -->
             <div>
                 <label for="signin-account" class="mb-1.5 block text-sm font-medium text-gray-700">
-                    <%= t('auth.account') %> <span class="text-rose-500">*</span>
+                    <%= t('auth.ui.account') %> <span class="text-rose-500">*</span>
                 </label>
                 <input id="signin-account" name="account" type="text" required maxlength="191"
-                    autocomplete="username" placeholder="<%= t('auth.account_placeholder') %>"
+                    autocomplete="username" placeholder="<%= t('auth.ui.account_placeholder') %>"
+                    data-required-msg="<%= t('auth.validation.account_required') %>"
                     class="input" />
             </div>
             <div>
                 <label for="signin-password" class="mb-1.5 block text-sm font-medium text-gray-700">
-                    <%= t('auth.password') %> <span class="text-rose-500">*</span>
+                    <%= t('auth.ui.password') %> <span class="text-rose-500">*</span>
                 </label>
                 <input id="signin-password" name="password" type="password" required maxlength="72"
-                    autocomplete="current-password" placeholder="<%= t('auth.password_placeholder') %>"
+                    autocomplete="current-password" placeholder="<%= t('auth.ui.password_placeholder') %>"
+                    data-required-msg="<%= t('auth.validation.password_required') %>"
                     class="input" />
             </div>
             <button type="submit" class="btn-primary w-full">
-                <%= t('auth.signin_action') %>
+                <%= t('auth.ui.signin_action') %>
             </button>
         </form>
 
         <p class="mt-6 text-center text-sm text-gray-500">
-            <%= t('auth.to_signup') %>
+            <%= t('auth.ui.to_signup') %>
             <a href="/signup" class="font-medium text-emerald-600 hover:text-emerald-500">
-                <%= t('auth.to_signup_action') %>
+                <%= t('auth.ui.to_signup_action') %>
             </a>
         </p>
     </section>

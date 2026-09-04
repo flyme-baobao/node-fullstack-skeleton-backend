@@ -70,13 +70,13 @@ export type FieldRule = {
 
 /** signup 各字段的即时校验规则表（新增字段在此加一行即可，逻辑零改动） */
 export const SIGNUP_FIELD_RULES: Record<string, FieldRule> = {
-    [FORM_FIELD_NAME.USERNAME]: { validate: validUsername, errorKey: 'auth.username_invalid' },
-    [FORM_FIELD_NAME.EMAIL]: { validate: validEmail, errorKey: 'auth.email_invalid' },
-    [FORM_FIELD_NAME.PHONE]: { validate: validPhone, errorKey: 'auth.phone_invalid' },
-    [FORM_FIELD_NAME.PASSWORD]: { validate: validPassword, errorKey: 'auth.password_invalid' },
+    [FORM_FIELD_NAME.USERNAME]: { validate: validUsername, errorKey: 'auth.validation.username_invalid' },
+    [FORM_FIELD_NAME.EMAIL]: { validate: validEmail, errorKey: 'auth.validation.email_invalid' },
+    [FORM_FIELD_NAME.PHONE]: { validate: validPhone, errorKey: 'auth.validation.phone_invalid' },
+    [FORM_FIELD_NAME.PASSWORD]: { validate: validPassword, errorKey: 'auth.validation.password_invalid' },
     [FORM_FIELD_NAME.CONFIRM_PASSWORD]: {
         // confirm_password 一致性由 blur 事件比对 password；compare 传该字段对应 password 值
         validate: (v, compare_v) => validConfirmPassword(compare_v || '', v),
-        errorKey: 'auth.password_mismatch',
+        errorKey: 'auth.validation.password_mismatch',
     },
 };

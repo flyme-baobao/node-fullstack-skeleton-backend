@@ -8,7 +8,7 @@
  *  - API未对接时拦截提交防止404，接口上线移除handleSubmit内TODO兜底。
  * 启动调用 initAuthFormValidation()，模块bound开关保证幂等。
  */
-import { t } from '../../i18n/i18n';
+import { t } from '../../../i18n/i18n';
 import {
     FORM_FIELD_NAME,
     SIGNUP_FIELD_RULES,
@@ -62,7 +62,7 @@ export function initAuthFormValidation(): void {
             passwordInput instanceof HTMLInputElement &&
             !validConfirmPassword(passwordInput.value, input.value)
         ) {
-            showFieldError(input, t('auth.password_mismatch'));
+            showFieldError(input, t('auth.validation.password_mismatch'));
         }
     });
 
@@ -79,7 +79,7 @@ function handleSubmit(e: SubmitEvent): void {
     if (form.dataset.authForm === 'signin') {
         const account = form.elements.namedItem('account');
         if (account instanceof HTMLInputElement && account.value && !validAccount(account.value)) {
-            errors.push({ input: account, message: t('auth.account_invalid') });
+            errors.push({ input: account, message: t('auth.validation.account_invalid') });
         }
     }
 
