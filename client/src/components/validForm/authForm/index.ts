@@ -11,6 +11,7 @@
 
 import { signin, signup } from '@/api/auth.api';
 import { t } from '@/i18n/translate';
+import { userService } from '@service/userService';
 import {
     FORM_FIELD_NAME,
     SIGNUP_FIELD_RULES,
@@ -113,11 +114,16 @@ function handleSubmit(e: SubmitEvent): void {
         const userName = getFieldValue(form, 'user_name');
         const email = getFieldValue(form, 'email') || null;
         const phoneNumber = getFieldValue(form, 'phone_number') || null;
-        signup({ userName, email, phoneNumber, password });
+        signup({ userName, email, phoneNumber, password }).then( data => {
+            console.log('signup success user', data.user);
+        });
     }
     if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
         const account = getFieldValue(form, 'account');
-        signin(account, password);
+        signin(account, password).then( ({ user, token}) => {
+            console.log('signin success user', user);
+            userService.setCurrentUser(user!, token);
+        });
     }
 }
 

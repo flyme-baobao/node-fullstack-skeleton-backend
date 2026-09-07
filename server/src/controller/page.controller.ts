@@ -19,7 +19,7 @@ export function createPageHandler(path: string, meta: PageMeta) {
     return async (req: Request, res: Response): Promise<void> => {
         const ctx = createWebCtx(req, res);
         const lang = ctx.locals.currentLocale || 'zh-CN';
-        const i18nJson = await loadI18n(lang);
+        const i18nJson = await loadI18n(lang, ctx.userContext.isLogin);
 
         await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见
 

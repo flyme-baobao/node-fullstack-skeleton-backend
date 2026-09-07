@@ -2,6 +2,7 @@ const ACCESS_TOKEN_KEY = 'access_token';
 
 class UserService {
     private tokenCache: string | null = null;
+    private currentUser: UserInfo | null = null;
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -25,6 +26,11 @@ class UserService {
     setToken(token: string): void {
         this.tokenCache = token;
         localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    }
+
+    setCurrentUser(user: UserInfo, token: string): void {
+        this.currentUser = user;
+        this.setToken(token);
     }
 
     clearToken(): void {

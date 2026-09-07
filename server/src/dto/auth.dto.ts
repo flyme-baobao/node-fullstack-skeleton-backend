@@ -48,9 +48,9 @@ function invalid(): never {
 
 /** 解析并校验注册入参：user_name/password 必填，email/phone_number 选填（有值才校验格式） */
 export function parseSignup(body: unknown): SignupDto {
-    const userName = str(body, 'user_name').trim();
+    const userName = str(body, 'userName').trim();
     const email = str(body, 'email').trim();
-    const phoneNumber = str(body, 'phone_number').trim();
+    const phoneNumber = str(body, 'phoneNumber').trim();
     const password = str(body, 'password');
 
     if (!userName || !password) invalid();
@@ -61,8 +61,8 @@ export function parseSignup(body: unknown): SignupDto {
 
     return {
         userName,
-        email: email || undefined,
-        phoneNumber: phoneNumber || undefined,
+        email,
+        phoneNumber,
         password,
     };
 }

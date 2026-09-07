@@ -3,6 +3,7 @@
  *
  * 职责单一：在进入业务路由前完成「白名单放行 / 凭证校验 / userId 注入」。
  *   - 白名单：公开整页、壳渲染基础资源（i18n/路由清单/切换语言）、signup/signin 自身；
+ *     凭证走同一套解析做软校验：有有效凭证注入 userId（isLogin 派生用），失败静默放行不 401；
  *   - 凭证：sessionId Cookie（httpOnly）+ Authorization: Bearer <token> 双通道；
  *   - 单凭证：Redis 校验通过即放行（req.userId 注入）；
  *   - 双凭证：都必须有效且 userId 一致才放行；任一无效 40103，不一致 40102；
@@ -22,7 +23,7 @@ import { getRedis } from '../db/redis.js';
 import { getCookie } from '../utils/cookie.js';
 import { logger } from '../utils/logger.js';
 import { HttpError } from './error.middleware.js';
-import { ERROR_DEFS } from '../i18n/error-defs.js';
+import { ERROR_DEFS, type ErrorCodeDefinition } from '../i18n/error-defs.js';
 import {
     SESSION_COOKIE,
     isAuthExemptPath,
@@ -48,58 +49,90 @@ async function lookupUserId(key: string): Promise<string | null> {
     return getRedis().get(key);
 }
 
-export const authMiddleware = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
-    // ① 白名单：不做凭证解析
-    if (isAuthExemptPath(req.method, req.path)) {
-        next();
-        return;
-    }
+const REASON_MAP = {
+    MISSING: 'missing',
+    INVALID: 'invalid',
+    MISMATCH: 'mismatch',
+} as const;
 
-    // ② 提取双通道凭证
+const REASON_ERROR_DEF_MAP = {
+    [REASON_MAP.MISSING]: ERROR_DEFS.unauthorized,
+    [REASON_MAP.INVALID]: ERROR_DEFS.unauthorized,
+    [REASON_MAP.MISMATCH]: ERROR_DEFS.session_mismatch,
+} satisfies Record<CredentialResolutionReason, ErrorCodeDefinition>;
+
+type CredentialResolutionReason = typeof REASON_MAP[keyof typeof REASON_MAP];
+
+/** 凭证解析结果：ok=true 携带 userId；ok=false 携带失败原因（供调用方决定放行 / 401 / 静默降级） */
+type CredentialResolution =
+    | { ok: true; userId: string }
+    | { ok: false; reason: CredentialResolutionReason; hasSession: boolean; hasToken: boolean };
+
+/**
+ * 凭证解析唯一实现（白名单 / 受保护路径共用，避免两份「提取 + 查库」逻辑漂移）：
+ *   - 全缺 → missing；单凭证查不到或双凭证任一查不到 → invalid；双凭证 userId 不一致 → mismatch。
+ * 本函数绝不抛错、绝不写响应——如何处置由调用方决定：
+ *   - 白名单路径：失败静默放行（软解析），成功则注入 req.userId 供 isLogin 派生；
+ *   - 受保护路径：失败按原因映射 40101/40103/40102 + 告警日志。
+ */
+async function resolveCredentials(req: Request): Promise<CredentialResolution> {
     const sessionId = getCookie(req.headers.cookie, SESSION_COOKIE);
     const token = extractBearerToken(req);
-
-    // ③ 全缺 → 40101（前端据此触发重定向/弹窗，后端不做重定向）
+    // 直接在原始变量上判空（而非布尔别名）：TS 依此把后续分支的 sessionId/token 收窄为 string
     if (!sessionId && !token) {
-        throw new HttpError({ ...ERROR_DEFS.unauthorized });
+        return { ok: false, reason: REASON_MAP.MISSING, hasSession: false, hasToken: false };
     }
-
-    // ④ 单凭证：只校验自己那份
     if (!sessionId || !token) {
-        const key = sessionId
-            ? sessionKey(sessionId)
-            : tokenKey(token!);
+        const key = sessionId ? sessionKey(sessionId) : tokenKey(token!);
         const userId = await lookupUserId(key);
-        if (!userId) {
-            // 凭证存在但 Redis 查不到：过期或伪造 → 40103
-            throw new HttpError({ ...ERROR_DEFS.unauthorized });
-        }
-        req.userId = userId;
-        next();
-        return;
+        return userId
+            ? { ok: true, userId }
+            : { ok: false, reason: REASON_MAP.INVALID, hasSession: Boolean(sessionId), hasToken: Boolean(token) };
     }
-
-    // ⑤ 双凭证：各自校验 + userId 一致性
     const [sessionUserId, tokenUserId] = await Promise.all([
         lookupUserId(sessionKey(sessionId)),
         lookupUserId(tokenKey(token)),
     ]);
     if (!sessionUserId || !tokenUserId) {
-        // 任一失效 → 40103（不区分哪一份失效，避免给攻击者探针信息）
-        logger.warn('[auth] dual credential one side invalid', {
-            requestId: req.requestId,
-            hasSession: Boolean(sessionUserId),
-            hasToken: Boolean(tokenUserId),
-        });
-        throw new HttpError({ ...ERROR_DEFS.unauthorized });
+        // 双凭证分支：走到这里 sessionId/token 均已收窄为非空串
+        return { ok: false, reason: REASON_MAP.INVALID, hasSession: true, hasToken: true };
     }
     if (sessionUserId !== tokenUserId) {
-        // 都有效但归属不同用户 → 40102（疑似凭证串用/CSRF 残留风险）
-        logger.warn('[auth] dual credential userId mismatch', {
-            requestId: req.requestId,
-        });
-        throw new HttpError({ ...ERROR_DEFS.session_mismatch });
+        return { ok: false, reason: REASON_MAP.MISMATCH, hasSession: true, hasToken: true };
     }
-    req.userId = sessionUserId;
-    next();
+    return { ok: true, userId: sessionUserId };
+}
+
+export const authMiddleware = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    // ① 白名单：同一套解析逻辑做「软解析」——失败静默放行（不 401），成功注入 userId
+    // 供 getI18n / changeLanguage 等派生 isLogin（未登录返回精简语言包 notLogin.<lang>.json）
+    if (isAuthExemptPath(req.method, req.path)) {
+        const result = await resolveCredentials(req);
+        req.userId = result.ok ? result.userId : undefined;
+        next();
+        return;
+    }
+
+    // ②~⑤ 受保护路径：同一套解析逻辑，失败按原因映射错误码（处置权在调用方）
+    const result = await resolveCredentials(req);
+    if (result.ok) {
+        req.userId = result.userId;
+        next();
+        return;
+    }
+
+    const errorDef = REASON_ERROR_DEF_MAP[result.reason];
+
+    if (!errorDef) {
+        // 理论不可达：satisfies Record<...> 已在编译期保证全量映射；兜底防请求悬死
+        logger.error('[auth] unhandled credential reason', { requestId: req.requestId, reason: result.reason });
+        throw new HttpError({ ...ERROR_DEFS.internal_error });
+    }
+
+    const message = `[auth] Auth failed: ${result.reason} (hasSession=${result.hasSession}, hasToken=${result.hasToken})`;
+    logger.error(message, {
+        requestId: req.requestId,
+        reason: result.reason
+    });
+    throw new HttpError({ ...errorDef });
 };

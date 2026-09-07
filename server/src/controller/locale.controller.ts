@@ -18,7 +18,7 @@ import { sleep } from '../utils/sleep.js';
 export async function getI18n(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
     const lang = ctx.locals.currentLocale || 'zh-CN';
-    const i18nJson = await loadI18n(lang);
+    const i18nJson = await loadI18n(lang, ctx.userContext.isLogin);
     ctx.status(200).json({ lang, i18nJson });
 }
 
@@ -33,7 +33,7 @@ export async function changeLanguage(req: Request, res: Response): Promise<void>
         });
     }
     ctx.cookie('lang', lang, { httpOnly: false, path: '/' });
-    const i18nJson = await loadI18n(lang);
+    const i18nJson = await loadI18n(lang, ctx.userContext.isLogin);
     ctx.status(200).json({ i18nJson, isSuccess: true });
 }
 
@@ -44,7 +44,7 @@ export async function changeLanguage(req: Request, res: Response): Promise<void>
 export async function renderBody(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
     const lang = ctx.locals.currentLocale || 'zh-CN';
-    const i18nJson = await loadI18n(lang);
+    const i18nJson = await loadI18n(lang, ctx.userContext.isLogin);
     const meta = metaForPath(ctx.query.path);
 
     await sleep(200); // 模拟请求较慢场景，避免 htmx 请求太快，loading 遮罩一闪而过看不见

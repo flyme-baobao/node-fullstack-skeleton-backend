@@ -97,6 +97,13 @@ export const ALLOWLIST_AUTH_POSTS = [
     '/api/auth/signin',
 ];
 
+export const ALLOWLIST_AUTH_GETS = [
+    '/api/i18n',
+    '/api/change-language',
+    '/api/__routes',
+];
+
+
 /**
  * 单一白名单判定（文档 §6.1 流程的谓词化）：
  *   1. 非 /api/** 且非 /page/**（静态资源 / SPA 壳 / partials）→ 放行；
@@ -112,7 +119,7 @@ export function isAuthExemptPath(method: string, path: string): boolean {
     if (!normalized.startsWith(API_PREFIX) && !normalized.startsWith(PAGE_PREFIX)) {
         return true;
     }
-    if (method === 'GET' && ALLOWLIST_PAGES.includes(normalized)) {
+    if (method === 'GET' && (ALLOWLIST_PAGES.includes(normalized) || ALLOWLIST_AUTH_GETS.includes(normalized))) {
         return true;
     }
     if (method === 'POST' && ALLOWLIST_AUTH_POSTS.includes(normalized)) {

@@ -5,8 +5,12 @@ export const SUPPORTED_LANGUAGES: string[] = ['zh-CN', 'en-US'];
  * 按语言键加载对应翻译 JSON（业务层工具，返回值直接可作模板变量 / 前端 window.I18n）。
  * @param lang 语言码，如 'zh-CN'、'en-US'
  */
-export async function loadI18n(lang = 'zh-CN'): Promise<Record<string, unknown>> {
-    const mod = await import(`../locales/${lang}.json`, { with: { type: 'json' } });
+export async function loadI18n(lang = 'zh-CN', isLogin = false): Promise<Record<string, unknown>> {
+    let url = `../locales/${lang}.json`;
+    if (!isLogin) {
+        url = `../locales/notLogin.${lang}.json`;
+    }
+    const mod = await import(url, { with: { type: 'json' } });
     return mod.default as Record<string, unknown>;
 }
 

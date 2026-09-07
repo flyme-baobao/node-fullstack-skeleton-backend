@@ -18,5 +18,14 @@ declare interface Window {
     htmx: HTMX
 }
 
+declare type UserInfo = {
+    userId: string;
+    userName: string;
+    email: string | null;
+    phoneNumber: string | null;
+    createdAt: Date;
+
+}
+
 
 declare const I18n: StringMap;
