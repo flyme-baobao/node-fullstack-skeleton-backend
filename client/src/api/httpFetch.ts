@@ -1,6 +1,7 @@
-import { getUrlWithParams } from '@/utils/url';
-import { errorHandle } from '@/utils/errorHandle';
-
+import { userService } from '@service/userService';
+import { getUrlWithParams } from '@utils/url';
+import { errorHandle } from '@utils/errorHandle';
+import { CONTENT_TYPE } from '@constants/contentType';
 type FetchOptions = RequestInit;
 type ERROR_RESPONSE = {
     code: number;
@@ -9,17 +10,28 @@ type ERROR_RESPONSE = {
 };
 
 /**
- * fetch封装，简易拦截器能力
+ * @description fetch 简易封装
+ *
+ * - 请求拦截：自动附加 Authorization Bearer token
+ * - 参数处理：GET/HEAD 将 data 转为 query；其它方法按 contentType 处理请求体(JSON/form‑urlencoded/multipart)
+ * - 网络异常(断网/CORS/DNS等)：弹出 network_error 提示后抛出异常
+ * - 响应处理：2xx 自动解析 JSON 返回；非2xx解析错误体，经 errorHandle 弹窗，抛出 HttpFetchError
+ *
+ * @template T 成功返回数据类型
+ * @param url 请求地址
+ * @param init 请求配置，data：GET/HEAD为query，其余为body；contentType 指定编码；credentials 默认 include
+ * @returns Promise<T>
+ * @throws {HttpFetchError} 非2xx响应，携带 status、data 错误体
  */
-export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOptions & { 
-    contentType?: string 
+export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOptions & {
+    contentType?: string
     data?: Record<string, any> | BodyInit | null
 } = {}
 ): Promise<T> {
     const {
         method = 'GET',
         data,
-        headers: _headers ={},
+        headers: _headers = {},
         contentType,
         credentials = 'include',
         ...restOpts
@@ -36,7 +48,7 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
     const headers = new Headers(_headers);
 
     // 示例：统一带上token
-    const token = localStorage.getItem("token");
+    const token = userService.getToken();
     if (token) {
         headers.set("Authorization", `Bearer ${token}`);
     }
@@ -44,20 +56,20 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
 
     let fetchUrl = url;
     if (['GET', 'HEAD'].includes(reqMethod)) {
-        if ( data && typeof data === 'object') {
+        if (data !== null && data && typeof data === 'object') {
             const _data = data as Record<string, any>;
             fetchUrl = getUrlWithParams(fetchUrl.toString(), window.location.origin, _data);
         }
     } else {
         if (data) {
-            if (data instanceof FormData || contentType === 'multipart/form-data') {
+            if (data instanceof FormData || contentType === CONTENT_TYPE.MULTIPART_FORM_DATA) {
                 headers.delete("Content-Type"); // 浏览器会自动设置正确的Content-Type和boundary
                 fetchOpts.body = data as FormData
-            } else if (contentType === 'application/x-www-form-urlencoded') {
-                headers.set("Content-Type", "application/x-www-form-urlencoded");
+            } else if (contentType === CONTENT_TYPE.FORM_URLENCODED) {
+                headers.set("Content-Type", CONTENT_TYPE.FORM_URLENCODED);
                 fetchOpts.body = new URLSearchParams(data as Record<string, any>).toString();
             } else {
-                headers.set("Content-Type", "application/json");
+                headers.set("Content-Type", CONTENT_TYPE.JSON);
                 fetchOpts.body = JSON.stringify(data);
             }
         }
@@ -109,12 +121,21 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
             statusText: res.statusText,
         },
     });
-    
+
     let errorMessage = errorData?.message ?? res.statusText;
     // 统一抛出错误，业务层可在catch里处理
-    const error = new Error(errorMessage);
-    (error as any).status = res.status;
-    (error as any).data = errorData;
-    throw error;
+    throw new HttpFetchError(errorMessage, res.status, errorData);
 
+}
+
+
+class HttpFetchError extends Error {
+    status?: number;
+    data?: ERROR_RESPONSE | null;
+    constructor(msg: string, status?: number, data?: ERROR_RESPONSE | null) {
+        super(msg);
+        this.name = "HttpFetchError";
+        this.status = status;
+        this.data = data;
+    }
 }

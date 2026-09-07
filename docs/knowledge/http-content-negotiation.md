@@ -23,10 +23,6 @@ Accept: text/html,application/xhtml+xml,application/xml;q=0.9,...,*/*;q=0.8
 
 htmx 发起的任何请求（含 `htmx.ajax()`）都会自动带上 `HX-Request` 头。因此**判断 htmx 事务只需看这个头**，不要依赖 `Accept`，因为 htmx 默认也发的是 XHR 风格的普通头。
 
-### 3. `X-Requested-With` 头 —— 传统 AJAX（可选，jQuery/部分框架）
-
-非 jQuery 框架通常用 `X-Requested-With: XMLHttpRequest` 标记 AJAX。本项目主要基于 htmx，故以 `HX-Request` 为准，此头仅作背景。
-
 ## 二、一套组合判定范式（推荐契约）
 
 ```

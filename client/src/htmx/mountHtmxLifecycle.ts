@@ -1,9 +1,11 @@
-import { handleConfirm } from '@components/confirm';
+import { handleHTMXRequestConfirm } from '@components/confirm';
 import { hideGlobalLoading } from '@components/loading';
 import { errorHandle } from '@utils/errorHandle';
 import { initLanguageSwitcher } from '@i18n/language';
 import { logger } from '@utils/logger';
 import { ROOT_ID } from '@constants/dom';
+import { userService } from '@/service/userService';
+
 /**
  * HTMX 2.x 完整生命周期事件（权威定稿·生产无坑全覆盖）
  * 对齐官方源码 + 生产踩坑修正 + 全特殊状态码规则 + 422专属特例
@@ -81,8 +83,8 @@ import { ROOT_ID } from '@constants/dom';
  * 兼容动态渲染的内容（htmx swap 进的新 DOM 无需重挂）。
  */
 export function mountHtmxLifecycle(): void {
-    /** htmx:confirm 拦截已提取到 components/confirm 的 handleConfirm（单一职责，这里只负责注册）。 */
-    document.addEventListener('htmx:confirm', handleConfirm);
+    /** htmx:confirm 拦截已提取到 components/confirm 的 handleHTMXRequestConfirm（单一职责，这里只负责注册）。 */
+    document.addEventListener('htmx:confirm', handleHTMXRequestConfirm);
 
     /** configRequest 阶段：唯一合法钩子，用于注入动态请求头、URL、Query/Body 参数与 Token。 */
     document.body.addEventListener('htmx:configRequest', (event: Event) => {
@@ -91,10 +93,13 @@ export function mountHtmxLifecycle(): void {
             path: string;
             parameters: Record<string, string>;
         };
-        // 例：从缓存读取 token 注入鉴权头，无则跳过。
-        // const token = localStorage.getItem('token');
-        // if (token) detail.headers['Authorization'] = `Bearer ${token}`;
-        // detail.headers['X-Requested-With'] = 'XMLHttpRequest';
+
+        // 从缓存读取 token 注入鉴权头，无则跳过。
+        const token = userService.getToken();
+        if (token) {
+            detail.headers['Authorization'] = `Bearer ${token}`;
+        }
+
         void detail.path;
     });
 

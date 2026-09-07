@@ -21,6 +21,7 @@
             "@constants/*": ["./client/src/constants/*"],
             "@i18n/*": ["./client/src/i18n/*"],
             "@router/*": ["./client/src/router/*"],
+            "@service/*": ["./client/src/service/*"],
             "@templates/*": ["./client/src/templates/*"],
             "@utils/*": ["./client/src/utils/*"]
         }

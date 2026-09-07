@@ -90,7 +90,7 @@ project-root/                           # 当前仓库根目录（占位名，�
 │     ├─ bootstrap.ts               # 启动装配：串行加载各模块并按依赖顺序执行
 │     ├─ index.d.ts                 # 全局类型声明（window.I18n / window.htmx / StringMap）
 │     ├─ components/                # UI 组件（同步函数 + 异步模板加载）
-│     │  ├─ confirm.ts             #   确认弹窗 + htmx:confirm 拦截（openConfirm / handleConfirm）
+│     │  ├─ confirm.ts             #   确认弹窗 + htmx:confirm 拦截（showConfirm / handleHTMXRequestConfirm）
 │     │  ├─ toast.ts               #   全局 Toast 提示（showToast）
 │     │  ├─ loading.ts             #   请求 Loading（预载模板 + 全局视口遮罩 show/hide）
 │     │  └─ loading.scss           #   Loading 样式（.loading-spinner / .loading-region / .loading-overlay）
