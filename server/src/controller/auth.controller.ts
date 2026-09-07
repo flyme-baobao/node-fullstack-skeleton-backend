@@ -48,13 +48,13 @@ export async function signin(req: Request, res: Response): Promise<void> {
     ctx.status(200).json({ token, user });
 }
 
-/** GET /api/auth/me —— 当前用户信息（getUserInfo） */
-export async function me(req: Request, res: Response): Promise<void> {
+/** GET /api/auth/users —— 当前用户信息（getUserInfo） */
+export async function getUserInfo(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
     // 防御：me 路由在 auth.middleware 之后，userId 必有；缺失说明挂载顺序被破坏，直接 401
     if (!ctx.userContext.userId) {
         throw new HttpError({ ...ERROR_DEFS.unauthorized });
     }
-    const user = await authService.me(ctx.userContext.userId);
+    const user = await authService.getUserInfo(ctx.userContext.userId);
     ctx.status(200).json({ user });
 }

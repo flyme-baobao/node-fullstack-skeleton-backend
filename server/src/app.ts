@@ -44,14 +44,15 @@ export async function createApp(): Promise<Express> {
     app.use(i18nRequest()); // ① 每请求解析语言，挂 req.t() / req.i18n
 
     // ①.5 鉴权：白名单放行 + 双凭证校验 + 写 req.userId（文档 §6.1）。
-    // 顺序约束：必须在 i18nRequest() 之后（错误响应需要 req.t 翻译），
-    // 必须在 userContext 之前（isLogin 依赖本层写入的 req.userId）；
-    // 内部全程 asyncHandler：await Redis 之后再 next()，顺序天然成立；Redis 故障转 next(err)。
+    // 顺序约束：必须在 i18nRequest() 之后（错误响应需要 req.t 翻译）、
+    // 在业务路由之前（controller 经 createWebCtx 读 req.userId 派生 isLogin）；
+    // 内部为裸 async：Express 5 原生把 async handler 的 rejected promise 转成 next(err)，
+    // Redis 故障/凭证异常直接 throw → errorHandler。
     app.use(authMiddleware);
 
     // 每请求挂用户上下文：req.userTimeZone（browser_tz cookie）+ req.userLocale（代理 req.language）；
     // 依赖 i18next 已探测好 req.language，故必须在 i18nRequest() 之后；
-    // isLogin 派生自 authMiddleware 写入的 req.userId，故必须在 authMiddleware 之后
+    // isLogin 不在此派生：由 createWebCtx 统一从 req.userId 派生（adapter/webCtx.ts）
     app.use(userContext);
 
     // ② 把 req.t 桥接到 res.locals，EJS 模板（含 partials）才能直接用 <%= t('...') %>

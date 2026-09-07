@@ -28,6 +28,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     [SIGNUP_PATH]: { view: 'pages/signup', title: '注册 - TaskFlow', showHeader: false },
 };
 
+export const PAGE_PATHS = Object.keys(PAGE_META);
 export const CLIENT_PATHS = Object.keys(PAGE_META).map(path => toClientPath(path));
 
 /** 按 path 取页面元信息；未知 path 兜底到首页。 */

@@ -20,6 +20,7 @@ export const DEFAULT_TTL_SECONDS = 60 * 60; // 1 小时
 export interface RedisClientLike {
     get(key: string): Promise<string | null>;
     set(key: string, value: string, ttlSeconds?: number): Promise<void>;
+    del(key: string): Promise<void>;
 }
 
 type GlobalWithRedisClient = typeof globalThis & {
@@ -147,5 +148,9 @@ export function createRedisCache(): RedisClientLike {
             }
             await getRedis().set(key, value, { EX: ttlSeconds });
         },
+
+        async del(key): Promise<void> {
+            await getRedis().del(key);
+        }
     };
 }

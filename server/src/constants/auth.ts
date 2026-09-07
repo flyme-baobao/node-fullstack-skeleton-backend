@@ -8,6 +8,7 @@
  *       前端侧键见 client/src/auth/session.ts。
  */
 import { PAGE_PREFIX, API_PREFIX } from './api.js';
+import { PAGE_PATHS } from '../views.js';
 
 /** sessionId 的 Cookie 名（httpOnly，浏览器自动携带，前端 JS 不可读） */
 export const SESSION_COOKIE = 'sessionId';
@@ -20,11 +21,17 @@ const TOKEN_PREFIX = 'auth:token:';
 /** Redis key 前缀：session */
 const SESSION_PREFIX = 'auth:session:';
 
+/** Redis key 前缀：当前用户信息（userId → UserIdentity） */
+export const CURRENT_USER_INFO_PREFIX = 'auth:current-user-info:';
+
 /** token 有效期（秒）：2 小时 */
 export const TOKEN_TTL_SECONDS = 60 * 60 * 2;
 
 /** sessionId 有效期（秒）：7 天（与前端「到期自动重新登录」的 Cookie maxAge 对齐） */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+
+/** 当前用户信息 有效期（秒）：60 分钟 */
+export const CURRENT_USER_INFO_TTL_SECONDS = 60 * 60;
 
 /** sessionId Cookie 的 maxAge（毫秒，Express cookie 用） */
 export const SESSION_COOKIE_MAX_AGE_MS = SESSION_TTL_SECONDS * 1000;
@@ -38,17 +45,17 @@ export function tokenKey(token: string): string {
 export function sessionKey(sessionId: string): string {
     return `${SESSION_PREFIX}${sessionId}`;
 }
+export function currentUserInfoKey(userId: string): string {
+    return `${CURRENT_USER_INFO_PREFIX}${userId}`;
+}
 
 /**
- * 页面级白名单：PAGE_META 登记的「整页 GET」，未登录也放行（渲染壳/表单/列表壳）。
- * 数据类整页（/page/todos、/page/body）不在其列 → 需鉴权（未登录时页面内数据由后端降级，见文档 §7）。
+ * 页面级白名单：PAGE_META 登记的「整页 GET」全部放行（首页/清单壳/登录/注册），未登录可达。
+ * 清单页放行的代价由 service 层数据降级承担：未登录时 listTodos 返回空数组、不查库，
+ * 模板经 isLogin=false 渲染登录引导（文档 §7）——这里只拦请求，不做数据兜底；
+ * GET /page/body（语言无感重绘）不在 PAGE_META，故不在其列 → 需鉴权（登录态功能）。
  */
-export const PUBLIC_PAGES = [
-    `${PAGE_PREFIX}`,
-    `${PAGE_PREFIX}/list`,
-    `${PAGE_PREFIX}/signin`,
-    `${PAGE_PREFIX}/signup`,
-];
+export const ALLOWLIST_PAGES = [...PAGE_PATHS];
 
 /**
  * auth 自身接口白名单（POST）：未登录发起注册/登录，必须放行（文档 §8.2「signin/signup 等白名单接口」）。
@@ -56,7 +63,7 @@ export const PUBLIC_PAGES = [
  *     /api/i18n、/api/change-language、/api/__routes 按文档 §3 均需鉴权，auth 页内的
  *     401 由前端「auth 页内静默」策略消化（见文档 §8.2）。
  */
-export const PUBLIC_AUTH_POSTS = [
+export const ALLOWLIST_AUTH_POSTS = [
     '/api/auth/signup',
     '/api/auth/signin',
 ];
@@ -68,14 +75,18 @@ export const PUBLIC_AUTH_POSTS = [
  *   3. POST 命中 auth 注册登录接口 → 放行；
  *   其余一律要求鉴权。
  */
-export function isPublicPath(method: string, path: string): boolean {
-    if (!path.startsWith(API_PREFIX) && !path.startsWith(PAGE_PREFIX)) {
+export function isAuthExemptPath(method: string, path: string): boolean {
+    // 尾部斜杠归一化：Express 路由默认宽松匹配（/page/ 能命中 /page 的注册路由），
+    // 而下方白名单是精确串比较——不归一化，/page/ 会被 401（views.ts 的 metaForPath
+    // 已对尾斜杠兜底，两侧语义须一致）。根路径 '/' 不剥（避免变空串）。
+    const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path;
+    if (!normalized.startsWith(API_PREFIX) && !normalized.startsWith(PAGE_PREFIX)) {
         return true;
     }
-    if (method === 'GET' && PUBLIC_PAGES.includes(path)) {
+    if (method === 'GET' && ALLOWLIST_PAGES.includes(normalized)) {
         return true;
     }
-    if (method === 'POST' && PUBLIC_AUTH_POSTS.includes(path)) {
+    if (method === 'POST' && ALLOWLIST_AUTH_POSTS.includes(normalized)) {
         return true;
     }
     return false;

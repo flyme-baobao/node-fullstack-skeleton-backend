@@ -15,7 +15,8 @@
 --   3. todos 表（表内联外键 REFERENCES users，顺序已满足）
 --   4. 各类索引/唯一索引
 
--- 用户状态枚举；DO 块兜底「类型已存在」实现幂等
+-- 用户状态枚举；DO 块兑底「类型已存在」实现幂等；
+-- JS 侧镜像常量见 server/src/repository/user.repository.ts 的 USER_STATUS（互链：改这里必须同步那边）
 DO $$
 BEGIN
     CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED');

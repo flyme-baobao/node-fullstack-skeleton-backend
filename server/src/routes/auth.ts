@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, signin, me } from '../controller/auth.controller.js';
+import { signup, signin, getUserInfo } from '../controller/auth.controller.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { API_PREFIX } from '../constants/api.js';
 
@@ -19,6 +19,6 @@ router.post(`${API_PREFIX}/auth/signup`, asyncHandler(signup));
 router.post(`${API_PREFIX}/auth/signin`, asyncHandler(signin));
 
 // 当前用户信息（getUserInfo）：需鉴权
-router.get(`${API_PREFIX}/auth/me`, asyncHandler(me));
+router.get(`${API_PREFIX}/auth/users`, asyncHandler(getUserInfo));
 
 export { router as authRouter };

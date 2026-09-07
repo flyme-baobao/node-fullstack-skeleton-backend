@@ -1,47 +1,68 @@
-<%#
-    待办清单页面主体，注入布局#outlet。
-    表单 hx‑target="#todo‑list" + afterbegin 和列表强耦合，不拆分，保证新增回填列表交互。
-    loading：#todo‑list-region 做请求指示器，htmx添加 .htmx‑request，CSS驱动显示loading遮罩。
-    loading片段复用 partials/loading.ejs。
-%>
-<div class="card border border-gray-100 p-6">
-    <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h3 class="text-lg font-semibold text-gray-900">
-                <%= t('todos.title') %>
-            </h3>
-            <p class="text-xs text-gray-400">
-                <%= t('todos.section_hint') %>
-            </p>
-            <p class="text-xs text-gray-400"><%- t('todos.count', { count: todos.length }) %></p>
+<%# 待办清单页面主体，注入布局#outlet。 表单 hx‑target="#todo‑list" + afterbegin 和列表强耦合，不拆分，保证新增回填列表交互。 loading：#todo‑list-region
+    做请求指示器，htmx添加 .htmx‑request，CSS驱动显示loading遮罩。 loading片段复用 partials/loading.ejs。
+    登录态：isLogin=false（白名单放行的未登录访问）渲染登录引导面板，不渲染表单/列表； 数据侧已由 service 层降级（listTodos 未登录返回空数组，见 todo.service.ts）。 %>
+    <div class="card border border-gray-100 p-6">
+        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <%= t('todos.title') %>
+                </h3>
+                <% if (isLogin) { %>
+                    <p class="text-xs text-gray-400">
+                        <%= t('todos.section_hint') %>
+                    </p>
+                    <p class="text-xs text-gray-400"><%- t('todos.count', { count: todos.length }) %></p>
+                <% } %>
+            </div>
+            <% if (isLogin) { %>
+                <!-- htmx 手动刷新列表：响应是「表头 + 列表」整块，须替换 #todo-list-block（只换 ul 会表头重复）；
+                hx-indicator 指向下方列表区域（请求期间显示区域遮罩）；
+                hx-disabled-elt 请求期间禁用按钮，防连点重复发包 -->
+                <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list-block" hx-swap="outerHTML"
+                    hx-indicator="#todo-list-region" hx-disabled-elt="this">↻ <%= t('todos.refresh') %></button>
+                <% } %>
         </div>
-        <!-- htmx 手动刷新列表：响应是「表头 + 列表」整块，须替换 #todo-list-block（只换 ul 会表头重复）；
-             hx-indicator 指向下方列表区域（请求期间显示区域遮罩）；
-             hx-disabled-elt 请求期间禁用按钮，防连点重复发包 -->
-        <button class="btn-ghost" hx-get="/page/todos" hx-target="#todo-list-block" hx-swap="outerHTML"
-            hx-indicator="#todo-list-region" hx-disabled-elt="this">↻ <%= t('todos.refresh') %></button>
-    </div>
 
-    <form class="loading-region mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos" hx-target="#todo-list"
-        hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()">
-        <!-- <input type="text" name="text" required data-required-msg="<%= t('validation.required') %>" -->
-        <input type="text" name="text" data-required-msg="<%= t('validation.required') %>"
-            placeholder="<%= t('todos.placeholder') %>"
-            class="input sm:flex-1" />
-        <button type="submit" class="btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <%= t('todos.add') %>
-        </button>
-        <%- include('../partials/loading') %>
-    </form>
+        <% if (isLogin) { %>
+            <form class="loading-region mb-5 flex flex-col gap-2 sm:flex-row sm:gap-3" hx-post="/page/todos"
+                hx-target="#todo-list" hx-swap="afterbegin"
+                hx-on::after-request="if(event.detail.successful) this.reset()">
+                <!-- <input type="text" name="text" required data-required-msg="<%= t('validation.required') %>" -->
+                <input type="text" name="text" data-required-msg="<%= t('validation.required') %>"
+                    placeholder="<%= t('todos.placeholder') %>" class="input sm:flex-1" />
+                <button type="submit" class="btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <%= t('todos.add') %>
+                </button>
+                <%- include('../partials/loading') %>
+            </form>
 
-    <!-- 区域 loading 容器：注意它不是 swap 目标（刷新按钮指向 #todo-list-block、form 指向 #todo-list），
+            <!-- 区域 loading 容器：注意它不是 swap 目标（刷新按钮指向 #todo-list-block、form 指向 #todo-list），
          outerHTML 替换表头+列表不会带走遮罩；请求结束后 htmx 摘掉 .htmx-request，遮罩自动隐藏 -->
-    <div class="loading-region rounded-xl border border-gray-100 p-2 sm:p-3" id="todo-list-region">
-        <%- include('../partials/list', { todos }) %>
-        <%- include('../partials/loading') %>
+            <div class="loading-region rounded-xl border border-gray-100 p-2 sm:p-3" id="todo-list-region">
+                <%- include('../partials/list', { todos }) %>
+                    <%- include('../partials/loading') %>
+            </div>
+        <% } else { %>
+            <!-- 未登录引导面板：替代表单/列表（数据按账号隔离，未登录无数据可展示） -->
+            <div class="rounded-xl border border-emerald-100 bg-emerald-50/60 p-6 text-center">
+                <h4 class="text-base font-semibold text-gray-900">
+                    <%= t('todos.signin_required_title') %>
+                </h4>
+                <p class="mx-auto mt-2 max-w-md text-sm text-gray-500">
+                    <%= t('todos.signin_required_hint') %>
+                </p>
+                <div class="mt-5 flex items-center justify-center gap-3">
+                    <a href="/signin" class="btn-primary">
+                        <%= t('auth.ui.signin_action') %>
+                    </a>
+                    <a href="/signup" class="btn-ghost">
+                        <%= t('auth.ui.signup_action') %>
+                    </a>
+                </div>
+            </div>
+        <% } %>
     </div>
-</div>

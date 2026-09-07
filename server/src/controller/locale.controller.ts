@@ -55,7 +55,7 @@ export async function renderBody(req: Request, res: Response): Promise<void> {
         todos,
         i18nJson,
         // 登录态派生标记：模板据此渲染未登录引导面板（文档 §7）
-        isLogin: ctx.userContext.userId !== undefined,
+        isLogin: ctx.userContext.isLogin,
         // 纯 SPA：/body 的 path 参带 /page 前缀，转成浏览器路径('/'、'/list')供 nav 高亮
         currentPage: toClientPath(ctx.query.path || '/'),
         // 外壳 header 显隐与整页渲染口径一致（登录/注册页 false），语言重绘不串台

@@ -21,14 +21,25 @@ export interface UserIdentity {
     userName: string;
     email: string | null;
     phoneNumber: string | null;
+    createdAt: Date;
 }
+
+/**
+ * 用户状态（镜像库端枚举 "UserStatus"，唯一事实来源在 init.sql：
+ * CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED')，改动任一侧必须同步另一侧）。
+ * 用 as const 对象 + 联合类型（不用 TS enum）：SQL 字面量留字面量，JS 侧零魔法串。
+ */
+export const USER_STATUS = {
+    ACTIVE: 'ACTIVE',
+    DISABLED: 'DISABLED',
+} as const;
+export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
 
 /** 登录凭证行（内部使用：仅 signin 校验密码时出现，不对外） */
 export interface UserCredential extends UserIdentity {
     passwordHash: string | null;
-    /** 库端枚举 'ACTIVE' | 'DISABLED' */
-    status: string;
-    createdAt: Date;
+    /** 库端枚举，见 USER_STATUS */
+    status: UserStatus;
 }
 
 /** find-by-identity 行形状（snake_case，pg 按列名返回 key） */
@@ -50,7 +61,8 @@ function toCredential(row: UserIdentityRow): UserCredential {
         email: row.email,
         phoneNumber: row.phone_number,
         passwordHash: row.password_hash,
-        status: row.status,
+        // pg 对 enum 返回裸 string，库端枚举值域只有 USER_STATUS 两个成员，此处收窄
+        status: row.status as UserStatus,
         createdAt: row.created_at,
     };
 }
@@ -62,6 +74,7 @@ function toIdentity(row: UserIdentityRow): UserIdentity {
         userName: row.user_name,
         email: row.email,
         phoneNumber: row.phone_number,
+        createdAt: row.created_at,
     };
 }
 

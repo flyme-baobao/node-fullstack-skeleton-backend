@@ -31,7 +31,8 @@ function toView(userContext: UserContext, item: TodoItem): TodoView {
 }
 
 /** 查询当前登录用户的待办列表（治理后的视图对象）。
- *  未登录（无 userId，公开页降级场景）返回空数组，不查库（文档 §7）。 */
+ *  未登录（无 userId，/page/list 白名单放行后的合法到达）返回空数组、不查库（文档 §7）——
+ *  这是数据级降级，不是安全边界：请求级拦截在 authMiddleware，数据隔离在 repository（按 user_id 查）。 */
 export async function listTodos(userContext: UserContext): Promise<TodoView[]> {
     if (!userContext.userId) {
         return [];
@@ -82,30 +83,27 @@ export async function removeTodo(userContext: UserContext, uid: string): Promise
     if (!userContext.userId) {
         // 未登录不该到达（API 已鉴权），防御性拦截
         return {
+            ...ERROR_DEFS.unauthorized,
             success: false,
-            code: ERROR_DEFS.unauthorized.code,
             reason: 'unauthorized',
-            status: ERROR_DEFS.unauthorized.status
         };
     }
     try {
         const removed = await todoRepository.remove(userContext.userId, uid);
         if (!removed) {
             return {
+                ...ERROR_DEFS.remove_not_found,
                 success: false,
-                code: ERROR_DEFS.remove_not_found.code,
                 reason: 'not_found',
-                status: ERROR_DEFS.remove_not_found.status
             };
         }
         return { success: true };
     } catch {
         // 写盘/底层失败（与「找不到 id」区分）→ 业务码 remove_failed
         return {
+            ...ERROR_DEFS.remove_failed,
             success: false,
-            code: ERROR_DEFS.remove_failed.code,
             reason: 'remove_failed',
-            status: ERROR_DEFS.remove_failed.status
         };
     }
 }

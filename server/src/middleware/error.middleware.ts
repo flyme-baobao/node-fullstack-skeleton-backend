@@ -42,8 +42,8 @@ export class HttpError extends Error {
 
         super(messageKey);
         this.name = 'HttpError';
-        this.status = init.status;
-        this.code = init.code ?? byCode?.code ?? null;
+        this.status = byCode?.status ?? init.status;
+        this.code = byCode?.code ?? init.code ?? byCode?.code ?? null;
         this.messageKey = messageKey;
         this.params = init.params;
     }

@@ -111,6 +111,7 @@ export async function removeTodo(req: Request, res: Response): Promise<void> {
     if (!result.success) {
         // result 未带 status/code 时兑底为 remove_failed（50002/500）
         throw new HttpError({
+            ...result,
             status: result.status ?? ERROR_DEFS.remove_failed.status,
             code: result.code ?? ERROR_DEFS.remove_failed.code,
         });

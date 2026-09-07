@@ -20,11 +20,14 @@ import {
     SESSION_TTL_SECONDS,
     tokenKey,
     sessionKey,
+    currentUserInfoKey,
+    CURRENT_USER_INFO_TTL_SECONDS,
 } from '../constants/auth.js';
 import type { UserIdentity } from '../repository/user.repository.js';
+import { USER_STATUS } from '../repository/user.repository.js';
 
 /** Redis 会话缓存封装（get/set 带 TTL）；模块级创建一次，内部每次操作都经 getRedis() */
-const cache = createRedisCache();
+const redisUserCache = createRedisCache();
 
 /** 登录入参 */
 export interface SigninInput {
@@ -70,6 +73,13 @@ export async function signup(input: {
     });
 }
 
+
+function convertCurrentUserInfoToString(user: UserIdentity): string {
+   const { createdAt, ...rest } = user; 
+    const strCreateDate = createdAt.getTime(); // Date → number JSON 序列化成 UTC 时间戳
+    return JSON.stringify(Object.assign(rest, { createdAt: strCreateDate }));
+}
+
 /**
  * 登录：定位用户 → 校验状态与密码 → 签发双凭证并写 Redis。
  * 所有失败统一 40103 credential_invalid（不区分「账号不存在 / 密码错误 / 账号禁用」，
@@ -77,10 +87,11 @@ export async function signup(input: {
  */
 export async function signin(input: SigninInput): Promise<SigninResult> {
     const user = await userRepository.findByAccount(input.account);
-    if (!user || !user.passwordHash || user.status !== 'ACTIVE') {
+    const { passwordHash, status, ...rest } = user ?? {};
+    if (!user || !passwordHash || status !== USER_STATUS.ACTIVE) {
         throw new HttpError({ ...ERROR_DEFS.credential_invalid });
     }
-    const passwordOk = await verifyPassword(input.password, user.passwordHash);
+    const passwordOk = await verifyPassword(input.password, passwordHash);
     if (!passwordOk) {
         throw new HttpError({ ...ERROR_DEFS.credential_invalid });
     }
@@ -88,34 +99,55 @@ export async function signin(input: SigninInput): Promise<SigninResult> {
     // 签发双凭证：token（响应体）+ sessionId（Set-Cookie），都映射到同一 userId
     const token = generateSecret();
     const sessionId = generateSecret();
+    const userInfo = {
+        ...rest,
+    } as UserIdentity;
 
-    // 会话只存 Redis：SETEX 语义由 cache.set(key, value, ttlSeconds) 承载；
+    const currentUserInfoString = convertCurrentUserInfoToString(userInfo);
+
+    // 会话只存 Redis：SET EX 语义由 cache.set(key, value, ttlSeconds) 承载；
     // 两个键写入必须都成功，任一失败向上抛（Redis 故障 → errorHandler 500，不发放半套凭证）
     await Promise.all([
-        cache.set(tokenKey(token), user.userId, TOKEN_TTL_SECONDS),
-        cache.set(sessionKey(sessionId), user.userId, SESSION_TTL_SECONDS),
+        redisUserCache.set(tokenKey(token), user.userId, TOKEN_TTL_SECONDS),
+        redisUserCache.set(sessionKey(sessionId), user.userId, SESSION_TTL_SECONDS),
+        redisUserCache.set(currentUserInfoKey(user.userId), currentUserInfoString, CURRENT_USER_INFO_TTL_SECONDS),
     ]);
 
     return {
         token,
         sessionId,
-        user: {
-            userId: user.userId,
-            userName: user.userName,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-        },
+        user: userInfo
     };
 }
 
 /**
  * 当前用户信息（GET /api/auth/me）：userId 由 auth.middleware 校验后注入。
  * 凭证有效但用户已不存在（被删/被禁后清理）→ 40103，前端走「重新登录」链路。
+ * 采用 Cache‑Aside 后期如果要更新用户信息（昵称/头像/邮箱等）直接更新 PG，清掉 Redis 缓存即可（下次访问 /api/auth/me 会重新查库）。
  */
-export async function me(userId: string): Promise<UserIdentity> {
-    const user = await userRepository.findByUserId(userId);
-    if (!user) {
-        throw new HttpError({ ...ERROR_DEFS.credential_invalid });
+export async function getUserInfo(userId: string): Promise<UserIdentity> {
+    let userInfo: UserIdentity | null | undefined = null;
+    const userInfoFromCache = await redisUserCache.get(currentUserInfoKey(userId));
+    if (userInfoFromCache) {
+        try {
+            userInfo = JSON.parse(userInfoFromCache) as UserIdentity;
+            userInfo.createdAt = new Date(userInfo.createdAt); // string → Date
+        } catch (err) {
+            // JSON 解析失败 → 缓存脏数据，清掉让下次重新查库
+            await redisUserCache.del(currentUserInfoKey(userId));
+        }
     }
-    return user;
+    if (!userInfo) {
+        // 缓存未命中，继续查库
+        userInfo = await userRepository.findByUserId(userId);
+        if (!userInfo) {
+            throw new HttpError({ ...ERROR_DEFS.unauthorized });
+        }
+        const currentUserInfoString = convertCurrentUserInfoToString(userInfo!);
+        await redisUserCache.set(currentUserInfoKey(userId), currentUserInfoString, CURRENT_USER_INFO_TTL_SECONDS);
+    }
+    if (!userInfo) {
+        throw new HttpError({ ...ERROR_DEFS.unauthorized });
+    }
+    return userInfo;
 }
