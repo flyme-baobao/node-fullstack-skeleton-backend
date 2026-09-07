@@ -49,6 +49,20 @@ export function currentUserInfoKey(userId: string): string {
     return `${CURRENT_USER_INFO_PREFIX}${userId}`;
 }
 
+/** Redis key 前缀：登录失败计数（signin 限流，按归一化账号维度） */
+const SIGNIN_FAIL_PREFIX = 'auth:signin-fail:';
+
+/** 同一账号窗口期内允许的最大登录失败次数，超过即锁定 */
+export const SIGNIN_MAX_ATTEMPTS = 5;
+
+/** 登录失败计数窗口（秒）：15 分钟，从首次失败起算（固定窗口，不随失败顺延） */
+export const SIGNIN_WINDOW_SECONDS = 15 * 60;
+
+/** 由登录账号生成失败计数键：账号做 trim + 小写归一化，防大小写变体绕过计数 */
+export function signinFailKey(account: string): string {
+    return `${SIGNIN_FAIL_PREFIX}${account.trim().toLowerCase()}`;
+}
+
 /**
  * 页面级白名单：PAGE_META 登记的「整页 GET」全部放行（首页/清单壳/登录/注册），未登录可达。
  * 清单页放行的代价由 service 层数据降级承担：未登录时 listTodos 返回空数组、不查库，

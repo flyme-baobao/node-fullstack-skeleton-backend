@@ -25,6 +25,11 @@ import {
 } from '../constants/auth.js';
 import type { UserIdentity } from '../repository/user.repository.js';
 import { USER_STATUS } from '../repository/user.repository.js';
+import {
+    assertNotLocked,
+    recordFailureAndThrow,
+    clearSigninFailures,
+} from './signin-throttle.js';
 
 /** Redis 会话缓存封装（get/set 带 TTL）；模块级创建一次，内部每次操作都经 getRedis() */
 const redisUserCache = createRedisCache();
@@ -81,20 +86,26 @@ function convertCurrentUserInfoToString(user: UserIdentity): string {
 }
 
 /**
- * 登录：定位用户 → 校验状态与密码 → 签发双凭证并写 Redis。
- * 所有失败统一 40103 credential_invalid（不区分「账号不存在 / 密码错误 / 账号禁用」，
- * 避免给攻击者账号枚举探针），i18n 文案即「账号或密码错误」。
+ * 登录：定位用户、校验状态密码、签发双凭证写入Redis。
+ * 凭证失败统一返回，避免账号枚举；根据限流状态分别返回密码错误(40104)或账号锁定(40105)。
+ * 限流：入口优先校验锁定，锁定时跳过查库与密码校验；仅凭证失败统计失败次数，登录成功清空限流计数。
+ * Redis故障直接抛错，遵循fail‑closed原则。
  */
 export async function signin(input: SigninInput): Promise<SigninResult> {
+    // 先查锁再查库：锁定期内的请求不消耗 DB 查询与 scrypt 校验成本
+    await assertNotLocked(input.account);
     const user = await userRepository.findByAccount(input.account);
     const { passwordHash, status, ...rest } = user ?? {};
     if (!user || !passwordHash || status !== USER_STATUS.ACTIVE) {
-        throw new HttpError({ ...ERROR_DEFS.credential_invalid });
+        // 记失败并抛错；return（而非 await）以保持后续 passwordHash 收窄为 string
+        return recordFailureAndThrow(input.account);
     }
     const passwordOk = await verifyPassword(input.password, passwordHash);
     if (!passwordOk) {
-        throw new HttpError({ ...ERROR_DEFS.credential_invalid });
+        return recordFailureAndThrow(input.account);
     }
+    // 登录成功：清掉失败计数，重置该账号的限流窗口
+    await clearSigninFailures(input.account);
 
     // 签发双凭证：token（响应体）+ sessionId（Set-Cookie），都映射到同一 userId
     const token = generateSecret();

@@ -7,7 +7,8 @@
  * 对外统一由 db/index.ts 导出，业务无需感知内部文件。
  */
 
-import { createClient, type RedisClientType } from '@redis/client';
+import { createClient } from '@redis/client';
+import type { RedisClientType, SetOptions } from '@redis/client';
 import { logger } from '../utils/logger.js';
 import { buildRedisUrl } from './db.config.js';
 import { HttpError } from '../middleware/error.middleware.js';
@@ -19,8 +20,17 @@ export const DEFAULT_TTL_SECONDS = 60 * 60; // 1 小时
 /** 业务侧缓存口径（不含发布订阅等高级能力），屏蔽底层驱动类型 */
 export interface RedisClientLike {
     get(key: string): Promise<string | null>;
-    set(key: string, value: string, ttlSeconds?: number): Promise<void>;
+    set(key: string, value: string, arg?: number | SetOptions): Promise<void>;
     del(key: string): Promise<void>;
+    /**
+     * 原子自增计数器（INCR），键不存在从0开始。
+     * ttlSeconds：固定窗口时长；首次自增使用 EXPIRE NX 设置TTL，仅无过期的键生效，后续自增不重置TTL，防止锁定无限顺延。
+     * 注意：INCR 与 EXPIRE为两条命令，非严格原子（Redis8 INCREX 才支持原子，本项目Redis7不可用）。
+     * 无需事务：INCR本身原子，EXPIRE NX幂等，并发交错结果正确；进程崩溃产生的无TTL脏键可被后续调用自愈；
+     * 仅极端异常场景会残留永久键，概率极低，且Redis故障链路会fail‑closed。
+     * 如需完全原子，可使用MULTI/EXEC或Lua脚本，当前版本暂不引入。
+     */
+    incr(key: string, ttlSeconds: number): Promise<number>;
 }
 
 type GlobalWithRedisClient = typeof globalThis & {
@@ -141,16 +151,31 @@ export function createRedisCache(): RedisClientLike {
         async get(key): Promise<string | null> {
             return getRedis().get(key);
         },
-        async set(key, value, ttlSeconds): Promise<void> {
-            if (ttlSeconds === undefined) {
+        async set(key, value, arg): Promise<void> {
+            // arg 两种形态：number = TTL 秒数；SetOptions = 底层选项透传。
+            // TTL 缺省或 <=0 视为「不设置过期时间」（永久键）
+            if (arg === undefined || (typeof arg === 'number' && arg <= 0)) {
                 await getRedis().set(key, value);
                 return;
             }
-            await getRedis().set(key, value, { EX: ttlSeconds });
+            if (typeof arg === 'number') {
+                await getRedis().set(key, value, { EX: arg });
+                return;
+            }
+            await getRedis().set(key, value, arg);
         },
 
         async del(key): Promise<void> {
             await getRedis().del(key);
+        },
+
+        async incr(key, ttlSeconds): Promise<number> {
+            const count = await getRedis().incr(key);
+            // EXPIRE NX 行为语义：NX 只看「键当前有无 TTL」，与值无关——
+            //   无 TTL（如首次 INCR 刚创建的键）→ 设置，从此刻开始倒数（固定窗口的起点）；
+            //   已有 TTL → 本命令返回 0 什么都不做，键沿用首次设定的那条 TTL（不可续期/重置）。
+            await getRedis().expire(key, ttlSeconds, 'NX');
+            return count;
         }
     };
 }

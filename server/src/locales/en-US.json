@@ -127,6 +127,8 @@
         "unauthorized": "Not signed in or session expired, please sign in",
         "session_mismatch": "Session state is inconsistent, please sign in again",
         "credential_invalid": "Invalid account or password",
+        "signin_credential_invalid": "Invalid account or password, {{remaining}} attempts remaining",
+        "signin_locked": "Too many attempts, the account is temporarily locked. Please try again in {{minutes}} minutes",
         "forbidden": "You do not have permission to perform this action",
         "account_exists": "This account already exists",
         "not_found": "Resource not found",

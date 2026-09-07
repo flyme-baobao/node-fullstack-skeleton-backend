@@ -20,6 +20,7 @@ export const HTTP_STATUS = {
     FORBIDDEN: 403,
     NOT_FOUND: 404,
     CONFLICT: 409,
+    TOO_MANY_REQUESTS: 429,
     INTERNAL_SERVER_ERROR: 500,
 } as const;
 
@@ -37,7 +38,9 @@ export const BUSINESS_CODE = {
     // 401 组：鉴权失败
     UNAUTHORIZED: 40101, // 未登录（双凭证全无）
     SESSION_MISMATCH: 40102, // 双凭证 userId 不一致（越权）
-    CREDENTIAL_INVALID: 40103, // 凭证无效 / 账号或密码错误
+    CREDENTIAL_INVALID: 40103, // 凭证无效 / 账号或密码错误（token 校验等通用凭证失败）
+    SIGNIN_CREDENTIAL_INVALID: 40104, // signin 凭证错误（未达限流上限，带剩余次数倒计时）
+    SIGNIN_LOCKED: 40105, // 登录失败次数过多，账号被临时锁定（signin 限流）
 
     // 403 组：禁止访问（预留）
     FORBIDDEN: 40301,

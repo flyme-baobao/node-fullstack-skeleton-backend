@@ -134,6 +134,16 @@ export const ERROR_DEFS = {
         message: 'errors.credential_invalid',
         status: HTTP_STATUS.UNAUTHORIZED
     },
+    signin_locked: {
+        code: BUSINESS_CODE.SIGNIN_LOCKED,
+        message: 'errors.signin_locked',
+        status: HTTP_STATUS.TOO_MANY_REQUESTS
+    },
+    signin_credential_invalid: {
+        code: BUSINESS_CODE.SIGNIN_CREDENTIAL_INVALID,
+        message: 'errors.signin_credential_invalid',
+        status: HTTP_STATUS.UNAUTHORIZED
+    },
     forbidden: {
         code: BUSINESS_CODE.FORBIDDEN,
         message: 'errors.forbidden',

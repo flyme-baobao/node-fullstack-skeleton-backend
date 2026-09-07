@@ -1,6 +1,7 @@
 # 数据库工作流（原生 node-pg，无 ORM）
 
-本文解释本仓库 PostgreSQL 数据访问的三个环节：连接管理、表结构初始化、业务查询的书写约定。
+本文解释本仓库 PostgreSQL 数据访问的三个环节：连接管理、表结构初始化、业务查询的书写约定；
+文末附带 Redis 侧 `EXPIRE` 选项语义（登录限流固定窗口依赖它，见第五节）。
 
 ## 一、技术选型
 
@@ -273,3 +274,28 @@ docker exec dev-postgres sh -c \
 - 启动：`server/src/index.ts` → `connectDatabase()`：从池里借一条连接执行 `SELECT 1` 探测，失败直接终止进程。
 - 运行：`pool.query(...)` 自动借还连接；空闲连接异常由 `pool.on('error')` 记日志兜底，不打崩进程。
 - 退场：`registerShutdown` → `disconnectDatabase()` → `pool.end()` 优雅释放。
+
+## 五、Redis：EXPIRE 选项语义（固定窗口计数）
+
+Postgres 之外，[server/src/db/redis.ts](../server/src/db/redis.ts) 的 `createRedisCache()` 提供
+`incr(key, ttlSeconds)`（`INCR` + `EXPIRE(key, ttl, 'NX')` 两条命令），当前唯一消费方是
+登录限流的固定窗口计数（[signin-throttle.ts](../server/src/service/signin-throttle.ts)）。
+
+`EXPIRE` 四个可选模式，判别口径各不相同：
+
+| 选项 | EXPIRE 命令行为 |
+|------|----------------|
+| `NX` | **无 TTL 才设置** —— 当前固定窗口方案采用 ✅（登录失败计数） |
+| `XX` | **已有 TTL 才修改** |
+| `GT` | 新 TTL > 当前剩余 TTL，才覆盖 —— 拉长过期 |
+| `LT` | 新 TTL < 当前剩余 TTL，才覆盖 —— 缩短过期 |
+
+> 注意 `SET` 命令的 `NX` 与 `EXPIRE` 的 `NX` 不是一回事：前者看「键是否存在」，后者看「键有无 TTL」。
+> 本方案里两者碰巧等价（INCR 首次建键时既不存在也无 TTL）。
+
+选用 `NX` 对固定窗口的推论：
+
+- 判定只看「键当前有无 TTL」，与值无关。首次失败（INCR 刚建键，无 TTL）→ 设上 TTL，此刻即窗口起点；
+  此后窗口内每次失败重发 `EXPIRE NX` 都是 no-op，窗口**不滑动、不重置**；
+- 键的生死由首次写入的那条 TTL 唯一决定，值涨到多少都不改终点；中途放弃（除登录成功 `DEL` 外）也照常到期消失，不留无主键；
+- 到期时键与值一并删除，下一次失败从 0 重新计数。
