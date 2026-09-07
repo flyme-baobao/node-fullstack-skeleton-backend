@@ -35,7 +35,11 @@
             "to_signup": "No account yet?",
             "to_signup_action": "Sign up now →",
             "to_signin": "Already have an account?",
-            "to_signin_action": "Sign in instead →"
+            "to_signin_action": "Sign in instead →",
+            "signup_success_title": "Account created!",
+            "signup_success_desc": "Your account is ready. Please sign in with your new credentials.",
+            "signup_success_countdown": "Redirecting to sign-in in {{seconds}}s…",
+            "signup_success_jump": "Go to sign-in now →"
         },
         "validation": {
             "username_required": "Please enter a username",

@@ -30,7 +30,7 @@ export interface ErrorHandleData {
 /** 静默路由名单：这些页面路径下 errorHandle 只计算文案、不弹全局 toast。
  *  适用场景：错误已在页面内联回显的页面（登录/注册表单 422 放行渲染），
  *  全局 toast 会与表单错误提示重复。新增静默页往数组里加 pathname 即可。 */
-const SILENT_ROUTES: string[] = ['/signin', '/signup'];
+const SILENT_ROUTES: string[] = [];
 
 /** 当前页面 pathname 是否命中静默名单（去尾斜杠归一化，与 routes.ts 口径一致）。 */
 function isSilentRoute(): boolean {

@@ -2,8 +2,10 @@
     注册页主体，注入布局#outlet。PAGE_META配置showHeader:false隐藏顶部导航，自带品牌与页间跳转入口。
     对齐users表：user_name、password、confirm_password必填；email、phone_number选填。
     必填规则使用HTML原生约束；密码一致性由authForm.ts全局委托校验。
-    暂拦截表单提交，等待/api/auth/signup接口对接。
+    注册提交对接 POST /api/auth/signup；成功后就地切换下方成功态卡片（倒计时跳登录，见 authForm/index.ts）。
 %>
+<%# 注册成功 → 跳转登录页的倒计时秒数（与 client authForm/index.ts 的 SIGNUP_REDIRECT_SECONDS 对齐） %>
+<% const SIGNUP_REDIRECT_SECONDS = 3; %>
 <div class="flex min-h-[70vh] items-center justify-center">
     <section class="card w-full max-w-md border border-gray-100 p-8">
         <!-- 品牌位：header 已隐藏，登录态外页面在此自呈现 -->
@@ -73,6 +75,26 @@
                 <%= t('auth.ui.signup_action') %>
             </button>
         </form>
+
+        <!-- 注册成功态卡片：默认隐藏，注册成功后由 authForm/index.ts 就地切换（表单隐藏、本卡片显示）。
+             文案全部由 SSR t()（完整语言包）注入，前端 JS 不依赖 window.I18n；倒计时模板串进 data 属性，
+             前端每秒替换 {{seconds}}。「立即跳转」为普通内链，点击由 SPA 路由捕获 → htmx.ajax 回填 #root（无整页刷新）。 -->
+        <div data-signup-success hidden class="mt-6 rounded-lg border border-emerald-100 bg-emerald-50 p-6 text-center">
+            <h3 class="text-lg font-bold text-emerald-700">
+                <%= t('auth.ui.signup_success_title') %>
+            </h3>
+            <p class="mt-2 text-sm text-gray-600">
+                <%= t('auth.ui.signup_success_desc') %>
+            </p>
+            <p class="mt-1 text-sm text-gray-500" data-countdown-text
+                data-countdown-template="<%= t('auth.ui.signup_success_countdown') %>">
+                <%= t('auth.ui.signup_success_countdown', { seconds: SIGNUP_REDIRECT_SECONDS }) %>
+            </p>
+            <a href="/signin" data-signup-jump
+                class="mt-4 inline-block font-medium text-emerald-600 hover:text-emerald-500">
+                <%= t('auth.ui.signup_success_jump') %>
+            </a>
+        </div>
 
         <p class="mt-6 text-center text-sm text-gray-500">
             <%= t('auth.ui.to_signin') %>

@@ -74,7 +74,7 @@ export async function signup(dto: SignupDto): Promise<UserIdentity> {
 
 function convertCurrentUserInfoToString(user: UserIdentity): string {
    const { createdAt, ...rest } = user; 
-    const strCreateDate = createdAt.getTime(); // Date → number JSON 序列化成 UTC 时间戳
+    const strCreateDate = createdAt?.getTime() ?? 0; // Date → number JSON 序列化成 UTC 时间戳
     return JSON.stringify(Object.assign(rest, { createdAt: strCreateDate }));
 }
 

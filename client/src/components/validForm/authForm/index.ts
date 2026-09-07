@@ -24,6 +24,9 @@ const FORM_TYPE = {
     SIGNUP: 'signup',
 };
 
+/** 注册成功 → 跳转登录页的倒计时秒数（与 signup.ejs 的 SIGNUP_REDIRECT_SECONDS 对齐） */
+const SIGNUP_REDIRECT_SECONDS = 3;
+
 
 /** 错误提示 <p> 的样式（Tailwind 工具类；本文件在 @source 扫描范围内，类名会被生成） */
 const ERROR_TEXT_CLASS = 'mt-1.5 text-sm text-rose-600';
@@ -114,9 +117,11 @@ function handleSubmit(e: SubmitEvent): void {
         const userName = getFieldValue(form, 'user_name');
         const email = getFieldValue(form, 'email') || null;
         const phoneNumber = getFieldValue(form, 'phone_number') || null;
-        signup({ userName, email, phoneNumber, password }).then( data => {
-            console.log('signup success user', data.user);
-        });
+        signup({ userName, email, phoneNumber, password })
+            .then(() => enterSignupSuccessState(form))
+            .catch(() => {
+                // 非 2xx 已由 httpFetch/errorHandle 弹 toast；这里吞掉 rejection 防未处理告警
+            });
     }
     if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
         const account = getFieldValue(form, 'account');
@@ -125,6 +130,55 @@ function handleSubmit(e: SubmitEvent): void {
             userService.setCurrentUser(user!, token);
         });
     }
+}
+
+/**
+ * 注册成功后就地切换成功态：隐藏表单、显示 signup.ejs 预置的成功卡片并启动倒计时。
+ * 文案由 SSR t()（完整语言包）注入，前端不依赖 window.I18n（未登录态拿到的是精简包）。
+ */
+function enterSignupSuccessState(form: HTMLFormElement): void {
+    const success = form.parentElement?.querySelector<HTMLElement>('[data-signup-success]');
+    if (!success) return;
+    form.hidden = true;
+    success.hidden = false;
+    startSignupCountdown(success);
+}
+
+/**
+ * 成功卡片倒计时：每秒递减 {{seconds}}；归零后经 history.pushState 跳登录页——
+ * pushState 已被 spaRouter 补丁捕获 → loadPageByPath → htmx.ajax GET /page/signin 回填 #root
+ * （SPA 无整页刷新，地址栏同步 /signin）。
+ */
+function startSignupCountdown(success: HTMLElement): void {
+    const textEl = success.querySelector<HTMLElement>('[data-countdown-text]');
+    const template = textEl?.dataset.countdownTemplate ?? '';
+    let seconds = SIGNUP_REDIRECT_SECONDS;
+    let timer: number | undefined;
+
+    const render = () => {
+        if (textEl) {
+            textEl.textContent = template.replace(/\{\{\s*seconds\s*\}\}/g, String(seconds));
+        }
+    };
+    render();
+
+    // 「立即跳转」：只清倒计时，<a> 导航交给 SPA 路由的捕获拦截（内部同样走 htmx.ajax 回填 #root）
+    const jump = success.querySelector<HTMLAnchorElement>('[data-signup-jump]');
+    jump?.addEventListener('click', () => {
+        if (timer !== undefined) clearInterval(timer);
+    }, { once: true });
+
+    timer = window.setInterval(() => {
+        seconds -= 1;
+        if (seconds <= 0) {
+            clearInterval(timer);
+            // 成功卡片已不在文档里（用户手动导航/后退走了）→ 静默放弃，避免把新页面顶掉
+            if (!document.body.contains(success)) return;
+            history.pushState({}, '', '/signin');
+            return;
+        }
+        render();
+    }, 1000);
 }
 
 /** 注册表单字段的即时格式校验（input / compositionend 共用）。非注册字段仅清错 */

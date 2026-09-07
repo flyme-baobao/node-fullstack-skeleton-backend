@@ -11,7 +11,8 @@ SELECT
     email,
     phone_number,
     password_hash,
-    status
+    status,
+    created_at
 FROM
     users
 WHERE
