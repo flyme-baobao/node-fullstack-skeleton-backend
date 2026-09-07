@@ -138,7 +138,7 @@ export default defineConfig(({ mode }) => {
                 '@constants': path.resolve(__dirname, './src/constants'),
                 '@i18n': path.resolve(__dirname, './src/i18n'),
                 '@router': path.resolve(__dirname, './src/router'),
-                '@services': path.resolve(__dirname, './src/services'),
+                '@service': path.resolve(__dirname, './src/service'),
                 '@templates': path.resolve(__dirname, './src/templates'),
                 '@utils': path.resolve(__dirname, './src/utils'),
             },

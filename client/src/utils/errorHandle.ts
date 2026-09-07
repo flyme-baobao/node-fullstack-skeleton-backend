@@ -27,28 +27,46 @@ export interface ErrorHandleData {
     };
 }
 
-/**
- * 解析错误消息并弹全局 toast（error 变体）。
- * 返回最终展示的文案，便于调用方在日志里复用同一份消息。
- */
-export function errorHandle(data: ErrorHandleData): string {
+/** 静默路由名单：这些页面路径下 errorHandle 只计算文案、不弹全局 toast。
+ *  适用场景：错误已在页面内联回显的页面（登录/注册表单 422 放行渲染），
+ *  全局 toast 会与表单错误提示重复。新增静默页往数组里加 pathname 即可。 */
+const SILENT_ROUTES: string[] = ['/signin', '/signup'];
+
+/** 当前页面 pathname 是否命中静默名单（去尾斜杠归一化，与 routes.ts 口径一致）。 */
+function isSilentRoute(): boolean {
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    return SILENT_ROUTES.includes(path);
+}
+
+/** 按优先级解析出最终展示文案（不弹 toast）：① 调用方消息 → ② 兜底词条 → ③ status/statusText 拼接。 */
+function resolveErrorText(data: ErrorHandleData): string {
     const { message, fallback } = data;
 
     // ① 已解析出的可读消息优先
     if (message && message.trim()) {
-        showToast(message, ToastVariant.Error);
         return message;
     }
 
     // ② 兜底词条（t() 插值；未命中时返回 key 本身）
     const fallbackText = t(fallback.key, fallback.params);
     if (fallbackText !== fallback.key) {
-        showToast(fallbackText, ToastVariant.Error);
         return fallbackText;
     }
 
     // ③ 词条未命中 → 用 status/statusText 拼最终兜底
-    const finalText = `Request failed: ${fallback.status ?? ''} ${fallback.statusText ?? ''}`.trim();
-    showToast(finalText, ToastVariant.Error);
-    return finalText;
+    return `Request failed: ${fallback.status ?? ''} ${fallback.statusText ?? ''}`.trim();
+}
+
+/**
+ * 解析错误消息并弹全局 toast（error 变体）；静默路由名单内的页面只返回文案不弹。
+ * 返回最终展示的文案，便于调用方在日志里复用同一份消息。
+ */
+export function errorHandle(data: ErrorHandleData): string {
+    const text = resolveErrorText(data);
+    // 静默路由：文案照常返回（日志可复用），只是不上屏
+    if (isSilentRoute()) {
+        return text;
+    }
+    showToast(text, ToastVariant.Error);
+    return text;
 }

@@ -1,5 +1,3 @@
-import { showToast, ToastVariant } from '@components/toast';
-import { t } from '@/i18n/translate';
 import { API_PREFIX } from '@constants/api';
 import { httpFetch } from './httpFetch';
 

@@ -8,6 +8,8 @@
  *  - API未对接时拦截提交防止404，接口上线移除handleSubmit内TODO兜底。
  * 启动调用 initAuthFormValidation()，模块bound开关保证幂等。
  */
+
+import { signin, signup } from '@/api/auth.api';
 import { t } from '@/i18n/translate';
 import {
     FORM_FIELD_NAME,
@@ -15,6 +17,12 @@ import {
     validAccount,
     validConfirmPassword,
 } from './validation';
+
+const FORM_TYPE = {
+    SIGNIN: 'signin',
+    SIGNUP: 'signup',
+};
+
 
 /** 错误提示 <p> 的样式（Tailwind 工具类；本文件在 @source 扫描范围内，类名会被生成） */
 const ERROR_TEXT_CLASS = 'mt-1.5 text-sm text-rose-600';
@@ -54,7 +62,7 @@ export function initAuthFormValidation(): void {
         if (!(input instanceof HTMLInputElement)) return;
         const form = input.form;
         const name = input.name;
-        if (form?.dataset.authForm !== 'signup' || name !== FORM_FIELD_NAME.CONFIRM_PASSWORD) {
+        if (form?.dataset.authForm !== FORM_TYPE.SIGNUP || name !== FORM_FIELD_NAME.CONFIRM_PASSWORD) {
             return;
         }
         const passwordInput = form.elements.namedItem(FORM_FIELD_NAME.PASSWORD);
@@ -69,6 +77,14 @@ export function initAuthFormValidation(): void {
     document.addEventListener('submit', handleSubmit);
 }
 
+const getFieldValue = (form: HTMLFormElement, name: string) => {
+    const input = form.elements.namedItem(name);
+    if (input instanceof HTMLInputElement) {
+        return input.value;
+    }
+    return '';
+}
+
 function handleSubmit(e: SubmitEvent): void {
     const form = e.target;
     if (!(form instanceof HTMLFormElement) || !form.dataset.authForm) return;
@@ -76,7 +92,7 @@ function handleSubmit(e: SubmitEvent): void {
     const errors: Array<{ input: HTMLInputElement; message: string }> = [];
 
     // signin 账号：按值特征路由到三类之一做正则校验（密码无需重复校验，与 signup 同策略）
-    if (form.dataset.authForm === 'signin') {
+    if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
         const account = form.elements.namedItem('account');
         if (account instanceof HTMLInputElement && account.value && !validAccount(account.value)) {
             errors.push({ input: account, message: t('auth.validation.account_invalid') });
@@ -90,16 +106,26 @@ function handleSubmit(e: SubmitEvent): void {
         return;
     }
 
-    // TODO: (鉴权 API 接线)：删除本兜底，改为提交到 POST /api/auth/signin|signup
+    
     e.preventDefault();
-    console.info('[authForm] 客户端校验通过；鉴权 API 未接线，暂不提交');
+    const password = getFieldValue(form, 'password');
+    if (form.dataset.authForm === FORM_TYPE.SIGNUP) {
+        const userName = getFieldValue(form, 'user_name');
+        const email = getFieldValue(form, 'email') || null;
+        const phoneNumber = getFieldValue(form, 'phone_number') || null;
+        signup({ userName, email, phoneNumber, password });
+    }
+    if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
+        const account = getFieldValue(form, 'account');
+        signin(account, password);
+    }
 }
 
 /** 注册表单字段的即时格式校验（input / compositionend 共用）。非注册字段仅清错 */
 function validateFieldOnInput(input: HTMLInputElement): void {
     const form = input.form;
     const name = input.name;
-    if (form?.dataset.authForm !== 'signup') {
+    if (form?.dataset.authForm !== FORM_TYPE.SIGNUP) {
         // 非注册表单：只清错不动
         clearFieldError(input);
         return;
