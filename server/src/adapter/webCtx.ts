@@ -2,17 +2,21 @@
 import type { Request, Response, CookieOptions } from 'express';
 import type { RenderPageOptions } from '../types/render.js';
 export type UserContext = {
-  /** 用户语言区域，如 zh‑CN / en‑US */
-  userLocale: string;
-  /** IANA 时区标识符，如 Asia/Shanghai、Etc/UTC */
-  userTimeZone: string;
-  /** 当前登录用户id，未登录可为 undefined */
-  userId?: string;
+    /** 用户语言区域，如 zh‑CN / en‑US */
+    userLocale: string;
+    /** IANA 时区标识符，如 Asia/Shanghai、Etc/UTC */
+    userTimeZone: string;
+    /** 当前登录用户id，未登录可为 undefined */
+    userId?: string;
     /**
      * 登录态派生标记（createWebCtx 内派生：isLogin = !!req.userId，文档 §7）。
      * 模板渲染经 locals 消费，不重复解析凭证。
     */
     isLogin: boolean;
+    /**
+     * 客户端 IP
+    */
+    clientIp?: string;
 };
 
 /**
@@ -82,6 +86,7 @@ export function createWebCtx(req: Request, res: Response): WebContext {
             userTimeZone: req.userTimeZone,
             userId: req.userId,
             isLogin: !!req.userId,
+            clientIp: req.ip,
         },
         status: (code) => {
             statusCode = code;

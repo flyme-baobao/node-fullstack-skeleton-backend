@@ -25,6 +25,9 @@ import {
 } from '../constants/auth.js';
 import type { UserIdentity } from '../repository/user.repository.js';
 import { USER_STATUS } from '../repository/user.repository.js';
+// 入参契约复用 dto 层（与 todo.service 的 CreateTodoDto 同款风格）：单一事实来源，
+// DTO 加字段（如 clientIp）service 签名自动跟随，不存在「DTO 改了 service 忘改」的漂移
+import type { SigninDto, SignupDto } from '../dto/auth.dto.js';
 import {
     assertNotLocked,
     recordFailureAndThrow,
@@ -33,13 +36,6 @@ import {
 
 /** Redis 会话缓存封装（get/set 带 TTL）；模块级创建一次，内部每次操作都经 getRedis() */
 const redisUserCache = createRedisCache();
-
-/** 登录入参 */
-export interface SigninInput {
-    /** 登录账号：user_name / email / phone_number 三选一（按特征识别，见 repository） */
-    account: string;
-    password: string;
-}
 
 /** 登录成功结果：token 给响应体，sessionId 交给 controller 写 Set-Cookie */
 export interface SigninResult {
@@ -53,27 +49,24 @@ export interface SigninResult {
  * 查重是友好路径（避免白算 ~100ms 的 scrypt）；并发窗口由库端唯一索引兜底
  * （repository.create 的 23505 → 40901），两条路径最终语义一致。
  */
-export async function signup(input: {
-    userName: string;
-    email?: string;
-    phoneNumber?: string;
-    password: string;
-}): Promise<UserIdentity> {
+export async function signup(dto: SignupDto): Promise<UserIdentity> {
+    const { userName, email, phoneNumber, password } = dto;
     // 逐字段查重（低频操作，三次点查成本可接受）：命中即冲突
     const conflicts = await Promise.all([
-        userRepository.findByAccount(input.userName),
-        input.email ? userRepository.findByAccount(input.email) : Promise.resolve(undefined),
-        input.phoneNumber ? userRepository.findByAccount(input.phoneNumber) : Promise.resolve(undefined),
+        userRepository.findByAccount(userName),
+        email ? userRepository.findByAccount(email) : Promise.resolve(undefined),
+        phoneNumber ? userRepository.findByAccount(phoneNumber) : Promise.resolve(undefined),
     ]);
     if (conflicts.some(Boolean)) {
         throw new HttpError({ ...ERROR_DEFS.account_exists });
     }
+    
 
-    const passwordHash = await hashPassword(input.password);
+    const passwordHash = await hashPassword(password);
     return userRepository.create({
-        userName: input.userName,
-        email: input.email,
-        phoneNumber: input.phoneNumber,
+        userName,
+        email,
+        phoneNumber,
         passwordHash,
     });
 }
@@ -91,21 +84,22 @@ function convertCurrentUserInfoToString(user: UserIdentity): string {
  * 限流：入口优先校验锁定，锁定时跳过查库与密码校验；仅凭证失败统计失败次数，登录成功清空限流计数。
  * Redis故障直接抛错，遵循fail‑closed原则。
  */
-export async function signin(input: SigninInput): Promise<SigninResult> {
+export async function signin(dto: SigninDto): Promise<SigninResult> {
+    const { account, password } = dto;
     // 先查锁再查库：锁定期内的请求不消耗 DB 查询与 scrypt 校验成本
-    await assertNotLocked(input.account);
-    const user = await userRepository.findByAccount(input.account);
+    await assertNotLocked(account);
+    const user = await userRepository.findByAccount(account);
     const { passwordHash, status, ...rest } = user ?? {};
     if (!user || !passwordHash || status !== USER_STATUS.ACTIVE) {
         // 记失败并抛错；return（而非 await）以保持后续 passwordHash 收窄为 string
-        return recordFailureAndThrow(input.account);
+        return recordFailureAndThrow(account);
     }
-    const passwordOk = await verifyPassword(input.password, passwordHash);
+    const passwordOk = await verifyPassword(password, passwordHash);
     if (!passwordOk) {
-        return recordFailureAndThrow(input.account);
+        return recordFailureAndThrow(account);
     }
     // 登录成功：清掉失败计数，重置该账号的限流窗口
-    await clearSigninFailures(input.account);
+    await clearSigninFailures(account);
 
     // 签发双凭证：token（响应体）+ sessionId（Set-Cookie），都映射到同一 userId
     const token = generateSecret();
