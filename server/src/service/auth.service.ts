@@ -85,21 +85,21 @@ function convertCurrentUserInfoToString(user: UserIdentity): string {
  * Redis故障直接抛错，遵循fail‑closed原则。
  */
 export async function signin(dto: SigninDto): Promise<SigninResult> {
-    const { account, password } = dto;
+    const { account, password, clientIp } = dto;
     // 先查锁再查库：锁定期内的请求不消耗 DB 查询与 scrypt 校验成本
-    await assertNotLocked(account);
+    await assertNotLocked(account, clientIp);
     const user = await userRepository.findByAccount(account);
     const { passwordHash, status, ...rest } = user ?? {};
     if (!user || !passwordHash || status !== USER_STATUS.ACTIVE) {
         // 记失败并抛错；return（而非 await）以保持后续 passwordHash 收窄为 string
-        return recordFailureAndThrow(account);
+        return recordFailureAndThrow(account, clientIp);
     }
     const passwordOk = await verifyPassword(password, passwordHash);
     if (!passwordOk) {
-        return recordFailureAndThrow(account);
+        return recordFailureAndThrow(account, clientIp);
     }
     // 登录成功：清掉失败计数，重置该账号的限流窗口
-    await clearSigninFailures(account);
+    await clearSigninFailures(account, clientIp);
 
     // 签发双凭证：token（响应体）+ sessionId（Set-Cookie），都映射到同一 userId
     const token = generateSecret();

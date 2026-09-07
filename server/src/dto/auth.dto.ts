@@ -32,7 +32,7 @@ export interface SigninDto {
     /** 登录账号：user_name / email / phone_number 三选一 */
     account: string;
     password: string;
-    clientIp?: string;
+    clientIp: string;
 }
 
 /** 取 body 字符串字段：undefined/null → ''，其余 String() 收敛 */
@@ -68,7 +68,7 @@ export function parseSignup(body: unknown): SignupDto {
 }
 
 /** 解析并校验登录入参：account/password 必填（account 格式交给按特征识别 + 库端匹配，不做正则白名单） */
-export function parseSignin(body: unknown, clientIp?: string): SigninDto {
+export function parseSignin(body: unknown, clientIp: string): SigninDto {
     const account = str(body, 'account').trim();
     const password = str(body, 'password');
     if (!account || !password) invalid();

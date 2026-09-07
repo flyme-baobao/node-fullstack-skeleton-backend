@@ -16,7 +16,7 @@ export type UserContext = {
     /**
      * 客户端 IP
     */
-    clientIp?: string;
+    clientIp: string;
 };
 
 /**
@@ -86,7 +86,7 @@ export function createWebCtx(req: Request, res: Response): WebContext {
             userTimeZone: req.userTimeZone,
             userId: req.userId,
             isLogin: !!req.userId,
-            clientIp: req.ip,
+            clientIp: req.ip ?? req.socket.remoteAddress ?? 'unknown',
         },
         status: (code) => {
             statusCode = code;

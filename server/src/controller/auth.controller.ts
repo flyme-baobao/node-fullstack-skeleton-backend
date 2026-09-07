@@ -41,7 +41,7 @@ export async function signup(req: Request, res: Response): Promise<void> {
 /** POST /api/auth/signin —— 登录：200 { token, user } + Set-Cookie(sessionId) */
 export async function signin(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
-    const dto = parseSignin(ctx.body, ctx.userContext.clientIp);
+    const dto = parseSignin(ctx.body, ctx.userContext.clientIp!);
     const { token, sessionId, user } = await authService.signin(dto);
     // sessionId 只进 httpOnly Cookie，前端 JS 不可读；token 走响应体由前端 localStorage 保管
     ctx.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());

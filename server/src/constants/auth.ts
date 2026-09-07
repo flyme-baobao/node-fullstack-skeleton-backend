@@ -49,11 +49,21 @@ export function currentUserInfoKey(userId: string): string {
     return `${CURRENT_USER_INFO_PREFIX}${userId}`;
 }
 
-/** Redis key 前缀：登录失败计数（signin 限流，按归一化账号维度） */
+/**
+ * Redis key 前缀：signin 限流失败计数，双维度双键：
+ *   - 账号键 auth:signin-fail:<归一化账号>：同一账号跨全部设备的合计失败数；
+ *   - 账号×IP 组合键 auth:signin-ip-fail:<归一化账号>:<clientIp>：同一账号在单台设备的失败数。
+ * 组合键（而非纯 IP 键）语义：设备配额按「账号×设备」隔离，换账号即换键、设备配额重置，
+ * 该绕过面由账号维度合计上限兜底；也避免 NAT 共享出口下无辜用户互相消耗同一个 IP 配额。
+ */
 const SIGNIN_FAIL_PREFIX = 'auth:signin-fail:';
+const SIGNIN_ACCOUNT_IP_FAIL_PREFIX = 'auth:signin-ip-fail:';
 
-/** 同一账号窗口期内允许的最大登录失败次数，超过即锁定 */
-export const SIGNIN_MAX_ATTEMPTS = 5;
+/** 同一账号 15 分钟窗口内允许的最大失败次数（跨全部设备合计），超过即锁定 */
+export const SIGNIN_MAX_ATTEMPTS = 10;
+
+/** 同一账号×同一 IP 15 分钟窗口内允许的最大失败次数（单台设备配额），超过即锁定；紧于账号合计，单设备撞库先撞到它 */
+export const SIGNIN_IP_MAX_ATTEMPTS = 5;
 
 /** 登录失败计数窗口（秒）：15 分钟，从首次失败起算（固定窗口，不随失败顺延） */
 export const SIGNIN_WINDOW_SECONDS = 15 * 60;
@@ -61,6 +71,11 @@ export const SIGNIN_WINDOW_SECONDS = 15 * 60;
 /** 由登录账号生成失败计数键：账号做 trim + 小写归一化，防大小写变体绕过计数 */
 export function signinFailKey(account: string): string {
     return `${SIGNIN_FAIL_PREFIX}${account.trim().toLowerCase()}`;
+}
+
+/** 由登录账号 + 客户端 IP 生成设备维度失败计数键：账号做 trim + 小写归一化（与账号键同口径），IP 由 webCtx 兜底（'unknown'） */
+export function signinIpFailKey(account: string, clientIp: string): string {
+    return `${SIGNIN_ACCOUNT_IP_FAIL_PREFIX}${account.trim().toLowerCase()}:${clientIp}`;
 }
 
 /**

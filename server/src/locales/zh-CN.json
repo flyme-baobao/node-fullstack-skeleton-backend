@@ -128,7 +128,7 @@
         "session_mismatch": "登录状态异常，请重新登录",
         "credential_invalid": "账号或密码错误",
         "signin_credential_invalid": "账号或密码错误，还可尝试 {{remaining}} 次",
-        "signin_locked": "尝试次数过多，账号已临时锁定，请 {{minutes}} 分钟后再试",
+        "signin_locked": "尝试次数过多，已临时锁定，请 {{minutes}} 分钟后再试",
         "forbidden": "没有权限执行该操作",
         "account_exists": "该账号已存在",
         "not_found": "资源不存在",
