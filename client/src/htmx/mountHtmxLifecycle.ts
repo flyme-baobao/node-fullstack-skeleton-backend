@@ -110,6 +110,9 @@ export function mountHtmxLifecycle(): void {
                 }
             } catch { /* 解析失败走兜底 */ }
         }
+        if (xhr.getResponseHeader('X-Error-Message')) {
+            return xhr.getResponseHeader('X-Error-Message') ?? '';
+        }
         if (xhr.responseText && !xhr.responseText.includes('<')) {
             const plain = xhr.responseText.trim();
             if (plain) return plain.slice(0, 120);
@@ -121,7 +124,11 @@ export function mountHtmxLifecycle(): void {
     const errorMeta = (detail: {
         xhr: XMLHttpRequest;
         error: Error;
-    }): Record<string, unknown> => {
+    }): {
+        status: number;
+        message: string;
+        error: string;
+    } => {
         const { xhr, error } = detail;
         return {
             status: xhr.status,
@@ -148,8 +155,10 @@ export function mountHtmxLifecycle(): void {
             xhr: XMLHttpRequest;
             error: Error;
         };
-        logger.error('网络请求失败', errorMeta(detail));
-        showToast(t('toast.network_error'), ToastVariant.Error);
+        const errorData = errorMeta(detail);
+        logger.error('网络请求失败', errorData);
+        const msg = errorData.message || t('toast.network_error');
+        showToast(msg, ToastVariant.Error);
     });
 
     /** beforeSwap 阶段：核心放行逻辑。
@@ -179,11 +188,12 @@ export function mountHtmxLifecycle(): void {
         };
         // 兜底过滤：万一 422 仍到这里（配置差异）也静默，不弹全局 toast
         if (detail.xhr.status === 422) return;
-        logger.error('htmx responseError', errorMeta(detail));
-        let msg = t('toast.request_failed', {
+        const errorData = errorMeta(detail);
+        logger.error('htmx responseError', errorData);
+        let msg = errorData.message || t('toast.request_failed', {
             status: detail.xhr.status,
-            message: extractErrorMessage(detail.xhr),
-        })
+            message: errorData.message,
+        });
         if (msg === 'toast.request_failed') {
             msg = `Request failed: ${detail.xhr.status} ${detail.xhr.statusText}`;
         }
@@ -199,8 +209,10 @@ export function mountHtmxLifecycle(): void {
     /** swapError 阶段：DOM 替换失败（多为 2xx 但 HTML 解析/渲染异常），走不到 afterSwap/afterSettle，直接弹 toast 提示。 */
     document.body.addEventListener('htmx:swapError', (event: Event) => {
         const detail = (event as CustomEvent).detail as { xhr: XMLHttpRequest; error: Error };
-        logger.error('htmx swap failed', errorMeta(detail));
-        showToast(t('toast.swap_failed'), ToastVariant.Error);
+        const errorData = errorMeta(detail);
+        logger.error('htmx swap failed', errorData);
+        const msg = errorData.message || t('toast.swap_failed');
+        showToast(msg, ToastVariant.Error);
     });
 
     /**

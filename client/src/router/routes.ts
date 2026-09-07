@@ -21,15 +21,20 @@ export function isValidPath(path: string): boolean {
 
 /** 运行时拉取合法路由清单并缓存；失败时置为 null（守卫退化为放行），不抛出。 */
 export async function loadRoutes(): Promise<void> {
+    let err: unknown;
     try {
-        const res = await getSpaRoutes();
-        if (!res.ok) throw new Error(`Get SPA routes ${res.status}`);
-        const data = (await res.json()) as RoutesManifest;
-        if (!Array.isArray(data.valid)) throw new Error('invalid manifest');
-        manifest = { valid: data.valid, base: data.base ?? '/' };
-    } catch (err) {
-        // 拉取失败：manifest=null，守卫放行所有路径，保证首屏不被阻塞。
-        console.warn('[routes] 拉取合法路径失败，路由守卫放行', err);
+        const data = await getSpaRoutes<RoutesManifest>();
+        if (Array.isArray(data.valid) && data.valid.every((p) => typeof p === 'string')) {
+            manifest = { valid: data.valid, base: data.base ?? '/' };
+        }
+    } catch (error) {
         manifest = null;
+        err = error;
+    } finally {
+        if (!manifest) {
+            console.warn('[routes] 拉取合法路径失败，路由守卫放行', err);
+        } else {
+            console.info('[routes] 已加载合法路径清单', manifest);
+        }
     }
 }
