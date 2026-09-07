@@ -18,6 +18,7 @@ import {
     validAccount,
     validConfirmPassword,
 } from './validation';
+import { getCookie, deleteCookie } from '@/utils/cookie';
 
 const FORM_TYPE = {
     SIGNIN: 'signin',
@@ -127,7 +128,7 @@ function handleSubmit(e: SubmitEvent): void {
         const account = getFieldValue(form, 'account');
         signin(account, password).then( ({ user, token}) => {
             console.log('signin success user', user);
-            userService.setCurrentUser(user!, token);
+            afterSigninSuccess(user, token);
         });
     }
 }
@@ -179,6 +180,13 @@ function startSignupCountdown(success: HTMLElement): void {
         }
         render();
     }, 1000);
+}
+
+function afterSigninSuccess(user: UserInfo, token: string): void {
+    const path = getCookie('redirect_path') || '/';
+    deleteCookie('redirect_path');
+    history.pushState({}, '', path);
+    userService.setCurrentUser(user, token);
 }
 
 /** 注册表单字段的即时格式校验（input / compositionend 共用）。非注册字段仅清错 */

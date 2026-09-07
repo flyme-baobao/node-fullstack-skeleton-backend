@@ -4,7 +4,7 @@ import { showGlobalLoading, hideGlobalLoading } from '@components/loading';
 
 type SigninResponse = {
     token: string;
-    user?: UserInfo
+    user: UserInfo
 };
 
 type SignupRequest = {
