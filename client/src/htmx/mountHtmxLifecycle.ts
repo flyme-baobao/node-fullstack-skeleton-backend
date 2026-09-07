@@ -1,7 +1,6 @@
 import { handleConfirm } from '@components/confirm';
-import { showToast, ToastVariant } from '@components/toast';
 import { hideGlobalLoading } from '@components/loading';
-import { t } from '@/i18n/translate';
+import { errorHandle } from '@utils/errorHandle';
 import { initLanguageSwitcher } from '@i18n/language';
 import { logger } from '@utils/logger';
 import { ROOT_ID } from '@constants/dom';
@@ -157,8 +156,11 @@ export function mountHtmxLifecycle(): void {
         };
         const errorData = errorMeta(detail);
         logger.error('网络请求失败', errorData);
-        const msg = errorData.message || t('toast.network_error');
-        showToast(msg, ToastVariant.Error);
+        // 选词条 + 弹 toast 统一走 errorHandle（sendError 无响应体，message 兜底为状态码 "0"）
+        errorHandle({
+            message: errorData.message,
+            fallback: { key: 'toast.network_error' },
+        });
     });
 
     /** beforeSwap 阶段：核心放行逻辑。
@@ -190,17 +192,15 @@ export function mountHtmxLifecycle(): void {
         if (detail.xhr.status === 422) return;
         const errorData = errorMeta(detail);
         logger.error('htmx responseError', errorData);
-        let msg = errorData.message || t('toast.request_failed', {
-            status: detail.xhr.status,
+        errorHandle({
             message: errorData.message,
+            fallback: {
+                key: 'toast.request_failed',
+                params: { status: detail.xhr.status, message: errorData.message },
+                status: detail.xhr.status,
+                statusText: detail.xhr.statusText,
+            },
         });
-        if (msg === 'toast.request_failed') {
-            msg = `Request failed: ${detail.xhr.status} ${detail.xhr.statusText}`;
-        }
-        showToast(
-            msg,
-            ToastVariant.Error,
-        );
         void detail.error;
     });
 
@@ -211,8 +211,10 @@ export function mountHtmxLifecycle(): void {
         const detail = (event as CustomEvent).detail as { xhr: XMLHttpRequest; error: Error };
         const errorData = errorMeta(detail);
         logger.error('htmx swap failed', errorData);
-        const msg = errorData.message || t('toast.swap_failed');
-        showToast(msg, ToastVariant.Error);
+        errorHandle({
+            message: errorData.message,
+            fallback: { key: 'toast.swap_failed' },
+        });
     });
 
     /**

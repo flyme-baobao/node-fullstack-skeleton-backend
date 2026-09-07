@@ -1,6 +1,5 @@
-import { showToast, ToastVariant } from '@components/toast';
-import { t } from '@/i18n/translate';
 import { getUrlWithParams } from '@/utils/url';
+import { errorHandle } from '@/utils/errorHandle';
 
 type FetchOptions = RequestInit;
 type ERROR_RESPONSE = {
@@ -88,15 +87,17 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
         errorData = null;
     } finally {
     }
-    
-    let msg = errorData?.message || t('toast.request_failed', {
-        status: res.status,
-        message: res.statusText,
+
+    // 选词条 + 插值 + 弹 toast 统一走 errorHandle
+    errorHandle({
+        message: errorData?.message,
+        fallback: {
+            key: 'toast.request_failed',
+            params: { status: res.status, message: res.statusText },
+            status: res.status,
+            statusText: res.statusText,
+        },
     });
-    showToast(
-        msg,
-        ToastVariant.Error,
-    );
     // 统一抛出错误，业务层可在catch里处理
     const error = new Error(JSON.stringify(errorData));
     (error as any).status = res.status;
