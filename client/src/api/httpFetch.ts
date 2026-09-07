@@ -65,7 +65,19 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
 
     fetchOpts.headers = headers;
 
-    const res = await fetch(fetchUrl, fetchOpts);
+    // ========== 网络层拦截（断网 / 超时 / CORS / DNS 失败） ==========
+    // fetch 本身在这些场景下 reject（TypeError: Failed to fetch），不弹 toast 的话业务层
+    // 若未 catch 就静默无提示。这里对齐 htmx sendError 的行为：统一弹 network_error。
+    let res: Response;
+    try {
+        res = await fetch(fetchUrl, fetchOpts);
+    } catch (err) {
+        errorHandle({
+            message: undefined,
+            fallback: { key: 'toast.network_error' },
+        });
+        throw err;
+    }
 
     if (res.ok) {
         // 统一解析JSON，业务层不用重复写 res.json()
