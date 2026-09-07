@@ -85,7 +85,6 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
         errorData = await res.json();
     } catch {
         errorData = null;
-    } finally {
     }
 
     // 选词条 + 插值 + 弹 toast 统一走 errorHandle
@@ -98,8 +97,10 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
             statusText: res.statusText,
         },
     });
+    
+    let errorMessage = errorData?.message ?? res.statusText;
     // 统一抛出错误，业务层可在catch里处理
-    const error = new Error(JSON.stringify(errorData));
+    const error = new Error(errorMessage);
     (error as any).status = res.status;
     (error as any).data = errorData;
     throw error;
