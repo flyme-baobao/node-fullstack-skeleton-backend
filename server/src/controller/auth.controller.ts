@@ -17,6 +17,7 @@ import { ERROR_DEFS } from '../i18n/error-defs.js';
 import {
     SESSION_COOKIE,
     SESSION_COOKIE_MAX_AGE_MS,
+    X_SESSION_EXIST,
 } from '../constants/auth.js';
 
 /** sessionId Cookie 安全属性（文档 §5.1；secure 仅生产启用——本地 http 环境带 secure 会被浏览器丢弃） */
@@ -27,6 +28,13 @@ function sessionCookieOptions() {
         secure: process.env.NODE_ENV === 'production',
         maxAge: SESSION_COOKIE_MAX_AGE_MS,
         path: '/',
+    } as const;
+}
+
+function sessionExistsCookieOptions(baseOptions: ReturnType<typeof sessionCookieOptions>) {
+    return {
+        ...baseOptions,
+        httpOnly: false, // 仅用于前端探测登录态，非凭证
     } as const;
 }
 
@@ -44,7 +52,9 @@ export async function signin(req: Request, res: Response): Promise<void> {
     const dto = parseSignin(ctx.body, ctx.userContext.clientIp!);
     const { token, sessionId, user } = await authService.signin(dto);
     // sessionId 只进 httpOnly Cookie，前端 JS 不可读；token 走响应体由前端 localStorage 保管
-    ctx.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
+    const options = sessionCookieOptions();
+    ctx.cookie(SESSION_COOKIE, sessionId, options);
+    ctx.cookie(X_SESSION_EXIST, '1', sessionExistsCookieOptions(options)); // 仅用于前端探测登录态，非凭证
     ctx.status(200).json({ token, user });
 }
 
@@ -56,5 +66,6 @@ export async function getUserInfo(req: Request, res: Response): Promise<void> {
         throw new HttpError({ ...ERROR_DEFS.unauthorized });
     }
     const user = await authService.getUserInfo(ctx.userContext.userId);
-    ctx.status(200).json({ user });
+    const token = await authService.getUserToken(user.userId);
+    ctx.status(200).json({ token, user });
 }

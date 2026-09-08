@@ -11,3 +11,6 @@
  */
 export const PAGE_PREFIX = '/page';
 export const API_PREFIX = '/api';
+
+export const SIGNIN_PATH = '/signin';
+export const SIGNUP_PATH = '/signup';

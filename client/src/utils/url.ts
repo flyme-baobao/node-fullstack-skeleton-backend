@@ -5,3 +5,7 @@ export const getUrlWithParams = (url: string, baseUrl: string, params: Record<st
     });
     return urlObj.toString();
 }
+
+export const getPath = (target: URL) => {
+    return target.pathname + target.search + target.hash;
+};

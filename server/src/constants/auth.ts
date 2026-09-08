@@ -12,6 +12,7 @@ import { PAGE_PATHS } from '../views.js';
 
 /** sessionId 的 Cookie 名（httpOnly，浏览器自动携带，前端 JS 不可读） */
 export const SESSION_COOKIE = 'sessionId';
+export const X_SESSION_EXIST = 'X-Session-Exist'; // 仅用于前端探测登录态，非凭证
 
 /** 前后端约定的目的是：Authorization: Bearer <token>（toki 名不做硬编码，由 httpFetch 统一处理） */
 

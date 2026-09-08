@@ -1,4 +1,5 @@
 import { PAGE_PREFIX } from '@constants/api';
+import { getPath } from '@utils/url';
 import { ROOT_SELECTOR } from '@constants/dom';
 import { isValidPath } from './routes';
 import { showToast, ToastVariant } from '@components/toast';
@@ -54,10 +55,6 @@ export function setupSpaRouter(htmx: HTMX): void {
             void showToast('页面加载失败，请稍后重试', ToastVariant.Error);
         }
     }
-
-    const getPath = (target: URL) => {
-        return target.pathname + target.search + target.hash;
-    };
 
     /** SPA 导航统一入口：pushState 更新地址栏。真正的加载由下方 patch 的 pushState 统一处理 */
     function navigate(urlOrPath: string) {

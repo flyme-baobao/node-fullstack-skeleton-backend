@@ -1,5 +1,5 @@
 import { httpFetch } from './httpFetch';
-import { API_PREFIX } from '@constants/api';
+import { API_PREFIX, SIGNIN_PATH, SIGNUP_PATH } from '@constants/api';
 import { showGlobalLoading, hideGlobalLoading } from '@components/loading';
 
 type SigninResponse = {
@@ -18,13 +18,15 @@ type SignupResponse = {
     user: UserInfo;
 };
 
-type GetUserInfoResponse = SignupResponse;
+type GetUserInfoResponse = SignupResponse & {
+    token: string;
+};
 
 const AUTH_PREFIX = `${API_PREFIX}/auth`;
 
 export const signin = async (account: string, password: string): Promise<SigninResponse> => {
     showGlobalLoading();
-    return httpFetch<SigninResponse>(`${AUTH_PREFIX}/signin`, {
+    return httpFetch<SigninResponse>(`${AUTH_PREFIX}${SIGNIN_PATH}`, {
         method: 'POST',
         data: { account, password },
     }).finally(() => {
@@ -35,7 +37,7 @@ export const signin = async (account: string, password: string): Promise<SigninR
 export const signup = async (request: SignupRequest): Promise<SignupResponse> => {
     const { userName, email, phoneNumber, password } = request;
     showGlobalLoading();
-    return httpFetch<SignupResponse>(`${AUTH_PREFIX}/signup`, {
+    return httpFetch<SignupResponse>(`${AUTH_PREFIX}${SIGNUP_PATH}`, {
         method: 'POST',
         data: { userName, email, phoneNumber, password },
     }).finally(() => {

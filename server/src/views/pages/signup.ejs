@@ -96,7 +96,8 @@
             </a>
         </div>
 
-        <p class="mt-6 text-center text-sm text-gray-500">
+        <!-- data-signup-footer：注册成功切换成功态时随表单一并隐藏（刚注册完无需再引导去登录） -->
+        <p data-signup-footer class="mt-6 text-center text-sm text-gray-500">
             <%= t('auth.ui.to_signin') %>
             <a href="/signin" class="font-medium text-emerald-600 hover:text-emerald-500">
                 <%= t('auth.ui.to_signin_action') %>

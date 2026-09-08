@@ -1,32 +1,28 @@
 /**
  * 登录注册表单事件层：document事件委托，SPA动态表单无需重复绑定。
- * 职责：只做事件监听 + 错误提示渲染，校验规则全部下沉至 ./validation.ts。
+ * 职责：只做事件监听 + 校验调度 + 错误提示渲染，本文件不认识具体业务线（signin/signup）。
  * 分工：
  *  - HTML原生约束优先，校验失败不会派发submit事件，与JS校验分层；
- *  - validation.ts负责注册input即时校验、登录账号submit校验；
- *  - 注册确认密码在blur失焦做一致性比对，避免输入过程频繁报错；
- *  - API未对接时拦截提交防止404，接口上线移除handleSubmit内TODO兜底。
+ *  - validation.ts 负责校验规则：注册input即时校验、confirm blur一致性、账号格式正则；
+ *  - flows.ts 是策略对象（每条业务线一个 AuthFlow）：取参、调API、成功后处置；
+ *    handleSubmit 骨架按 data-auth-form 查表分发，新增表单类型本文件零改动；
+ *  - 中文输入法的组合阶段会高频触发 input，用 isComposing 跳过，
+ *    组合结束后由 compositionend 事件补一次最终校验。
  * 启动调用 initAuthFormValidation()，模块bound开关保证幂等。
  */
 
-import { signin, signup } from '@/api/auth.api';
 import { t } from '@/i18n/translate';
-import { userService } from '@service/userService';
+import { AUTH_FLOWS, isFormKind } from './flows';
 import {
     FORM_FIELD_NAME,
     SIGNUP_FIELD_RULES,
-    validAccount,
     validConfirmPassword,
 } from './validation';
-import { getCookie, deleteCookie } from '@/utils/cookie';
 
 const FORM_TYPE = {
     SIGNIN: 'signin',
     SIGNUP: 'signup',
 };
-
-/** 注册成功 → 跳转登录页的倒计时秒数（与 signup.ejs 的 SIGNUP_REDIRECT_SECONDS 对齐） */
-const SIGNUP_REDIRECT_SECONDS = 3;
 
 
 /** 错误提示 <p> 的样式（Tailwind 工具类；本文件在 @source 扫描范围内，类名会被生成） */
@@ -82,27 +78,20 @@ export function initAuthFormValidation(): void {
     document.addEventListener('submit', handleSubmit);
 }
 
-const getFieldValue = (form: HTMLFormElement, name: string) => {
-    const input = form.elements.namedItem(name);
-    if (input instanceof HTMLInputElement) {
-        return input.value;
-    }
-    return '';
-}
-
+/**
+ * 提交骨架：按 data-auth-form 查 AUTH_FLOWS 分发，本函数不认识任何具体业务线。
+ * 流程：业务线补充校验 → 错误渲染/聚焦 → preventDefault → flow.submit。
+ */
 function handleSubmit(e: SubmitEvent): void {
     const form = e.target;
-    if (!(form instanceof HTMLFormElement) || !form.dataset.authForm) return;
+    if (!(form instanceof HTMLFormElement)) return;
+    const kind = form.dataset.authForm;
+    // 未注册的 data-auth-form：忽略（防拼写错静默走空）
+    if (!isFormKind(kind)) return;
+    const flow = AUTH_FLOWS[kind];
 
-    const errors: Array<{ input: HTMLInputElement; message: string }> = [];
-
-    // signin 账号：按值特征路由到三类之一做正则校验（密码无需重复校验，与 signup 同策略）
-    if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
-        const account = form.elements.namedItem('account');
-        if (account instanceof HTMLInputElement && account.value && !validAccount(account.value)) {
-            errors.push({ input: account, message: t('auth.validation.account_invalid') });
-        }
-    }
+    // submit 阶段补充校验（signup 为空数组，signin 校验账号格式）
+    const errors = flow.validate(form);
 
     if (errors.length > 0) {
         e.preventDefault();
@@ -111,82 +100,8 @@ function handleSubmit(e: SubmitEvent): void {
         return;
     }
 
-    
     e.preventDefault();
-    const password = getFieldValue(form, 'password');
-    if (form.dataset.authForm === FORM_TYPE.SIGNUP) {
-        const userName = getFieldValue(form, 'user_name');
-        const email = getFieldValue(form, 'email') || null;
-        const phoneNumber = getFieldValue(form, 'phone_number') || null;
-        signup({ userName, email, phoneNumber, password })
-            .then(() => enterSignupSuccessState(form))
-            .catch(() => {
-                // 非 2xx 已由 httpFetch/errorHandle 弹 toast；这里吞掉 rejection 防未处理告警
-            });
-    }
-    if (form.dataset.authForm === FORM_TYPE.SIGNIN) {
-        const account = getFieldValue(form, 'account');
-        signin(account, password).then( ({ user, token}) => {
-            console.log('signin success user', user);
-            afterSigninSuccess(user, token);
-        });
-    }
-}
-
-/**
- * 注册成功后就地切换成功态：隐藏表单、显示 signup.ejs 预置的成功卡片并启动倒计时。
- * 文案由 SSR t()（完整语言包）注入，前端不依赖 window.I18n（未登录态拿到的是精简包）。
- */
-function enterSignupSuccessState(form: HTMLFormElement): void {
-    const success = form.parentElement?.querySelector<HTMLElement>('[data-signup-success]');
-    if (!success) return;
-    form.hidden = true;
-    success.hidden = false;
-    startSignupCountdown(success);
-}
-
-/**
- * 成功卡片倒计时：每秒递减 {{seconds}}；归零后经 history.pushState 跳登录页——
- * pushState 已被 spaRouter 补丁捕获 → loadPageByPath → htmx.ajax GET /page/signin 回填 #root
- * （SPA 无整页刷新，地址栏同步 /signin）。
- */
-function startSignupCountdown(success: HTMLElement): void {
-    const textEl = success.querySelector<HTMLElement>('[data-countdown-text]');
-    const template = textEl?.dataset.countdownTemplate ?? '';
-    let seconds = SIGNUP_REDIRECT_SECONDS;
-    let timer: number | undefined;
-
-    const render = () => {
-        if (textEl) {
-            textEl.textContent = template.replace(/\{\{\s*seconds\s*\}\}/g, String(seconds));
-        }
-    };
-    render();
-
-    // 「立即跳转」：只清倒计时，<a> 导航交给 SPA 路由的捕获拦截（内部同样走 htmx.ajax 回填 #root）
-    const jump = success.querySelector<HTMLAnchorElement>('[data-signup-jump]');
-    jump?.addEventListener('click', () => {
-        if (timer !== undefined) clearInterval(timer);
-    }, { once: true });
-
-    timer = window.setInterval(() => {
-        seconds -= 1;
-        if (seconds <= 0) {
-            clearInterval(timer);
-            // 成功卡片已不在文档里（用户手动导航/后退走了）→ 静默放弃，避免把新页面顶掉
-            if (!document.body.contains(success)) return;
-            history.pushState({}, '', '/signin');
-            return;
-        }
-        render();
-    }, 1000);
-}
-
-function afterSigninSuccess(user: UserInfo, token: string): void {
-    const path = getCookie('redirect_path') || '/';
-    deleteCookie('redirect_path');
-    history.pushState({}, '', path);
-    userService.setCurrentUser(user, token);
+    flow.submit(form);
 }
 
 /** 注册表单字段的即时格式校验（input / compositionend 共用）。非注册字段仅清错 */

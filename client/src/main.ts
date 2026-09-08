@@ -1,3 +1,4 @@
 import './tailwind.css';
 import './main.scss';
-import './bootstrap';
+// import './bootstrap';
+import './bootstrapFlow';

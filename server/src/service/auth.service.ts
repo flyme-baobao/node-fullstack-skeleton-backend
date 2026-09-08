@@ -125,6 +125,12 @@ export async function signin(dto: SigninDto): Promise<SigninResult> {
     };
 }
 
+export async function getUserToken(userId: string): Promise<string | null> {
+    const token = await redisUserCache.get(tokenKey(userId));
+    return token ?? null;
+}
+
+
 /**
  * 当前用户信息（GET /api/auth/me）：userId 由 auth.middleware 校验后注入。
  * 凭证有效但用户已不存在（被删/被禁后清理）→ 40103，前端走「重新登录」链路。
