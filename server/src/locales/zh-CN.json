@@ -52,6 +52,12 @@
             "confirm_password_required": "请再次输入密码",
             "password_mismatch": "两次输入的密码不一致",
             "account_invalid": "账号格式不正确"
+        },
+       "permission": {
+            "title": "登录已失效",
+            "message": "你的登录已失效，请重新登录，点击「确认」继续。",
+            "confirm": "确认",
+            "cancel": "取消"
         }
     },
     "hero": {

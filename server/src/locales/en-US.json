@@ -52,6 +52,12 @@
             "confirm_password_required": "Please enter your password again",
             "password_mismatch": "Passwords do not match",
             "account_invalid": "Invalid account"
+        },
+        "permission": { 
+            "title": "Login Expired",
+            "message": "Your login has expired. Please sign in again and click \"Confirm\" to continue.", 
+            "confirm": "Confirm",
+            "cancel": "Cancel" 
         }
     },
     "hero": {

@@ -131,11 +131,13 @@ export function mountHtmxLifecycle(): void {
     }): {
         status: number;
         message: string;
+        statusText: string;
         error: string;
     } => {
         const { xhr, error } = detail;
         return {
             status: xhr.status,
+            statusText: xhr.statusText,
             message: extractErrorMessage(xhr),
             error: error instanceof Error ? error.message : String(error || 'unknown'),
         };
@@ -164,6 +166,7 @@ export function mountHtmxLifecycle(): void {
         // 选词条 + 弹 toast 统一走 errorHandle（sendError 无响应体，message 兜底为状态码 "0"）
         errorHandle({
             message: errorData.message,
+            status: errorData.status,
             fallback: { key: 'toast.network_error' },
         });
     });
@@ -199,11 +202,11 @@ export function mountHtmxLifecycle(): void {
         logger.error('htmx responseError', errorData);
         errorHandle({
             message: errorData.message,
+            status: errorData.status,
             fallback: {
                 key: 'toast.request_failed',
-                params: { status: detail.xhr.status, message: errorData.message },
-                status: detail.xhr.status,
-                statusText: detail.xhr.statusText,
+                params: { status: errorData.status, message: errorData.message },
+                statusText: errorData.statusText,
             },
         });
         void detail.error;
@@ -218,6 +221,7 @@ export function mountHtmxLifecycle(): void {
         logger.error('htmx swap failed', errorData);
         errorHandle({
             message: errorData.message,
+            status: errorData.status,
             fallback: { key: 'toast.swap_failed' },
         });
     });

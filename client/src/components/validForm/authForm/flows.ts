@@ -7,8 +7,10 @@
 
 import { signin, signup } from '@/api/auth.api';
 import { t } from '@/i18n/translate';
+import { SIGNIN_PATH } from '@/constants/api';
 import { userService } from '@service/userService';
-import { getCookie, deleteCookie } from '@/utils/cookie';
+import { getCookie } from '@/utils/cookie';
+import { clearCache } from '@/utils/authCache';
 import { COOKIE_REDIRECT_PATH } from '@/constants/cookie';
 import { validAccount } from './validation';
 
@@ -131,7 +133,7 @@ function startSignupCountdown(success: HTMLElement): void {
             clearInterval(timer);
             // 成功卡片已不在文档里（用户手动导航/后退走了）→ 静默放弃，避免把新页面顶掉
             if (!document.body.contains(success)) return;
-            history.pushState({}, '', '/signin');
+            history.pushState({}, '', SIGNIN_PATH);
             return;
         }
         render();
@@ -140,8 +142,9 @@ function startSignupCountdown(success: HTMLElement): void {
 
 function afterSigninSuccess(user: UserInfo, token: string): void {
     if (!user || !token) return;
+    userService.setCurrentUser(user, token);
     const path = getCookie(COOKIE_REDIRECT_PATH) || '/';
-    // path 必须与写入处（bootstrapFlow 的 setCookie path:'/'）一致，否则删不掉
-    deleteCookie(COOKIE_REDIRECT_PATH, { path: '/' });
+
+    clearCache(); // 清除跳转前的缓存 cookie，避免登录页/注册页残留
     window.location.href = path; // 强制刷新页面，确保 SPA 路由正确加载
 }

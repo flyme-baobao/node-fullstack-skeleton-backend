@@ -65,8 +65,8 @@ type CredentialResolutionReason = typeof REASON_MAP[keyof typeof REASON_MAP];
 
 /** 凭证解析结果：ok=true 携带 userId；ok=false 携带失败原因（供调用方决定放行 / 401 / 静默降级） */
 type CredentialResolution =
-    | { ok: true; userId: string }
-    | { ok: false; reason: CredentialResolutionReason; hasSession: boolean; hasToken: boolean };
+    | { ok: true; userId: string, token?: string }
+    | { ok: false; reason: CredentialResolutionReason; hasSession: boolean; token?: string };
 
 /**
  * 凭证解析唯一实现（白名单 / 受保护路径共用，避免两份「提取 + 查库」逻辑漂移）：
@@ -80,14 +80,14 @@ async function resolveCredentials(req: Request): Promise<CredentialResolution> {
     const token = extractBearerToken(req);
     // 直接在原始变量上判空（而非布尔别名）：TS 依此把后续分支的 sessionId/token 收窄为 string
     if (!sessionId && !token) {
-        return { ok: false, reason: REASON_MAP.MISSING, hasSession: false, hasToken: false };
+        return { ok: false, reason: REASON_MAP.MISSING, hasSession: false };
     }
     if (!sessionId || !token) {
         const key = sessionId ? sessionKey(sessionId) : tokenKey(token!);
         const userId = await lookupUserId(key);
         return userId
-            ? { ok: true, userId }
-            : { ok: false, reason: REASON_MAP.INVALID, hasSession: Boolean(sessionId), hasToken: Boolean(token) };
+            ? { ok: true, userId, token }
+            : { ok: false, reason: REASON_MAP.INVALID, hasSession: Boolean(sessionId), token };
     }
     const [sessionUserId, tokenUserId] = await Promise.all([
         lookupUserId(sessionKey(sessionId)),
@@ -95,12 +95,12 @@ async function resolveCredentials(req: Request): Promise<CredentialResolution> {
     ]);
     if (!sessionUserId || !tokenUserId) {
         // 双凭证分支：走到这里 sessionId/token 均已收窄为非空串
-        return { ok: false, reason: REASON_MAP.INVALID, hasSession: true, hasToken: true };
+        return { ok: false, reason: REASON_MAP.INVALID, hasSession: true, token };
     }
     if (sessionUserId !== tokenUserId) {
-        return { ok: false, reason: REASON_MAP.MISMATCH, hasSession: true, hasToken: true };
+        return { ok: false, reason: REASON_MAP.MISMATCH, hasSession: true, token };
     }
-    return { ok: true, userId: sessionUserId };
+    return { ok: true, userId: sessionUserId, token };
 }
 
 export const authMiddleware = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
@@ -109,14 +109,16 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
     if (isAuthExemptPath(req.method, req.path)) {
         const result = await resolveCredentials(req);
         req.userId = result.ok ? result.userId : undefined;
+        req.userToken = result.token;
         next();
         return;
     }
 
-    // ②~⑤ 受保护路径：同一套解析逻辑，失败按原因映射错误码（处置权在调用方）
+    // ②~⑤ 受保护路径：相同的校验逻辑，根据原因映射错误码（处置权在调用方）
     const result = await resolveCredentials(req);
     if (result.ok) {
         req.userId = result.userId;
+        req.userToken = result.token;
         next();
         return;
     }
@@ -129,7 +131,7 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
         throw new HttpError({ ...ERROR_DEFS.internal_error });
     }
 
-    const message = `[auth] Auth failed: ${result.reason} (hasSession=${result.hasSession}, hasToken=${result.hasToken})`;
+    const message = `[auth] Auth failed: ${result.reason} (hasSession=${result.hasSession}, hasToken=${Boolean(result.token)}) for ${req.method} ${req.path}`;
     logger.error(message, {
         requestId: req.requestId,
         reason: result.reason

@@ -112,19 +112,20 @@ export async function httpFetch<T = any>(url: RequestInfo | URL, init: FetchOpti
     }
 
     // 选词条 + 插值 + 弹 toast 统一走 errorHandle
+    const { status, statusText } = res;
     errorHandle({
         message: errorData?.message,
+        status,
         fallback: {
             key: 'toast.request_failed',
-            params: { status: res.status, message: res.statusText },
-            status: res.status,
-            statusText: res.statusText,
+            params: { status, message: statusText },
+            statusText,
         },
     });
 
-    let errorMessage = errorData?.message ?? res.statusText;
+    let errorMessage = errorData?.message ?? statusText;
     // 统一抛出错误，业务层可在catch里处理
-    throw new HttpFetchError(errorMessage, res.status, errorData);
+    throw new HttpFetchError(errorMessage, status, errorData);
 
 }
 

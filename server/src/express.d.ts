@@ -31,6 +31,11 @@ declare global {
              * 当前登录用户id（userContext 中间件从 session / token / cookie 解析，未登录可为 undefined）
              */
             userId?: string;
+            /**
+             * 当前请求携带的 Bearer token（auth 中间件从 Authorization 头解析注入，
+             * 未带 token（如仅 sessionId 会话）时为 undefined）
+             */
+            userToken?: string;
         }
 
         interface Response {

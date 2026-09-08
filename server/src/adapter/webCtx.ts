@@ -8,6 +8,8 @@ export type UserContext = {
     userTimeZone: string;
     /** 当前登录用户id，未登录可为 undefined */
     userId?: string;
+    /** 本次请求携带的 Bearer token（auth 中间件注入，仅 sessionId 会话时为 undefined） */
+    userToken?: string;
     /**
      * 登录态派生标记（createWebCtx 内派生：isLogin = !!req.userId，文档 §7）。
      * 模板渲染经 locals 消费，不重复解析凭证。
@@ -85,6 +87,7 @@ export function createWebCtx(req: Request, res: Response): WebContext {
             userLocale: req.userLocale,
             userTimeZone: req.userTimeZone,
             userId: req.userId,
+            userToken: req.userToken,
             isLogin: !!req.userId,
             clientIp: req.ip ?? req.socket.remoteAddress ?? 'unknown',
         },

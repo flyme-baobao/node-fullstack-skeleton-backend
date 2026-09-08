@@ -17,13 +17,21 @@ export type ConfirmEvent = CustomEvent<{
     issueRequest: (skipConfirmation?: boolean) => void;
 }>;
 
+export const CONFIRM_VARIANT = {
+    DANGER: 'danger',
+    WARN: 'warn',
+    INFO: 'info',
+} as const;
+
+type ConfirmVariant = (typeof CONFIRM_VARIANT)[keyof typeof CONFIRM_VARIANT];
+
 /** 弹窗配置：标题、确认文案、配色、图标 */
 interface ConfirmOptions {
     title?: string;
     confirmText?: string;
     cancelText?: string;
     /** danger = 红色（删除）；warn = 黄色（警示）；info = 蓝色/常规（切换等） */
-    variant?: 'danger' | 'warn' | 'info';
+    variant?: ConfirmVariant;
 }
 
 /** 变体配色：图标徽章、图标路径、确认按钮，全部随 variant 切换 */
@@ -50,7 +58,7 @@ export async function showConfirm(
     message: string,
     options: ConfirmOptions = {},
 ): Promise<boolean> {
-    const { title, confirmText, cancelText, variant = 'info' } = options;
+    const { title, confirmText, cancelText, variant = CONFIRM_VARIANT.INFO } = options;
     const style = VARIANT_STYLES[variant];
 
     // 骨架按需从 #confirm-template 加载，这里只填文案 + 切配色
@@ -153,7 +161,7 @@ export function handleHTMXRequestConfirm(event: Event): void {
     void showConfirm(message, {
         ...texts,
         variant:
-            (getAttr('data-confirm-variant') as ConfirmOptions['variant'] | null) ??
+            (getAttr('data-confirm-variant') as ConfirmVariant | null) ??
             undefined,
     }).then((ok) => {
         if (ok) evt.detail.issueRequest();

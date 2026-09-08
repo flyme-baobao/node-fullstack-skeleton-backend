@@ -1,17 +1,16 @@
 import { initLoadingTemplate, showGlobalLoading, hideGlobalLoading } from '@components/loading';
-import { deleteCookie, getCookie, setCookie } from '@/utils/cookie';
+import { getCookie } from '@/utils/cookie';
 import {
     COOKIE_X_SESSION_EXIST,
     COOKIE_REDIRECT_PATH,
     COOKIE_IS_AUTH_CHECKED,
     AUTH_CHECKED_TRUE,
-    AUTH_CHECKED_FALSE,
     SESSION_EXIST_TRUE,
 } from '@/constants/cookie';
 import { userService } from './service/userService';
 import { getUserInfo } from './api/auth.api';
 import { SIGNIN_PATH, SIGNUP_PATH } from '@constants/api';
-import { getPath } from './utils/url';
+import { cacheRedirectAuth, clearCache, clearAuth } from '@utils/authCache';
 /**
  * 顶层应用启动编排入口 bootstrapFlow
  * 执行时序：
@@ -77,21 +76,6 @@ async function mountApp(): Promise<void> {
 
 const SIGN_PATHS = [SIGNUP_PATH, SIGNIN_PATH];
 
-// 凭证失效清理：localStorage token + 登录态探针 cookie（X-Session-Exist，非 httpOnly 可删）。
-// httpOnly 的 sessionId 前端删不掉，只能等服务端过期/登出清除；探针删除后本地即视为未登录，
-// 后续请求若仍携带过期 sessionId，由后端 401 兜底。
-const clearAuth = () => {
-    userService.clearToken();
-    deleteCookie(COOKIE_X_SESSION_EXIST, { path: '/' });
-}
-
-// 缓存 cookie 仅由非登录页管理：启动时清除、跳转前写入（见 beforeRender 末尾）。
-// 登录页是纯消费方——不清不写，保留 redirect_path 供登录成功（afterSigninSuccess）跳回原目标页。
-const clearCache = () => {
-    deleteCookie(COOKIE_IS_AUTH_CHECKED, { path: '/' });
-    deleteCookie(COOKIE_REDIRECT_PATH, { path: '/' });
-}
-
 /**
  * beforeRender：启动阶段鉴权预检
  * 本地凭证 = X-Session-Exist 探针 cookie（sessionId 为 httpOnly 不可读）或 localStorage token；
@@ -139,11 +123,7 @@ const beforeRender = async (): Promise<void> => {
     if (isSignPath) return; // 已在登录/注册页：无需重新写缓存，也不跳转
     
     // 非登录页（业务页）：本次已探测过鉴权 + 记录当前页为登录后跳转目标
-    const is_auth_checked_val = hasCredential ? AUTH_CHECKED_TRUE : AUTH_CHECKED_FALSE;
-    const nextRedirectPath = getPath(new URL(window.location.href));
-
-    setCookie(COOKIE_IS_AUTH_CHECKED, is_auth_checked_val, { path: '/' });
-    setCookie(COOKIE_REDIRECT_PATH, nextRedirectPath, { path: '/' });
+    cacheRedirectAuth(hasCredential);
 
     window.location.href = hasCredential ? SIGNIN_PATH : SIGNUP_PATH; // 强制刷新页面，确保 SPA 路由正确加载
 };

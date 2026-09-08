@@ -1,5 +1,8 @@
+import { showConfirm, CONFIRM_VARIANT } from '@components/confirm';
 import { showToast, ToastVariant } from '@components/toast';
 import { t } from '@/i18n/translate';
+import { SIGNIN_PATH } from '@/constants/api';
+import { cacheRedirectAuth } from './authCache';
 
 /**
  * 统一错误提示出口（errorHandle.ts）
@@ -16,12 +19,12 @@ import { t } from '@/i18n/translate';
 export interface ErrorHandleData {
     /** 已解析出的可读消息（优先）；缺省时走 fallback 词条 */
     message?: string;
+    /** HTTP 状态码：用于区分「权限问题(401/403)→弹确认框」与「普通错误→toast」 */
+    status?: number;
     /** 兜底词条：key 为 i18n 点号路径，params 为插值参数 */
     fallback: {
         key: string;
         params?: Record<string, string | number>;
-        /** 词条未命中时的最终兜底：HTTP 状态码 */
-        status?: number;
         /** 词条未命中时的最终兜底：HTTP 状态文本 */
         statusText?: string;
     };
@@ -37,10 +40,20 @@ function isSilentRoute(): boolean {
     const path = window.location.pathname.replace(/\/$/, '') || '/';
     return SILENT_ROUTES.includes(path);
 }
+/**
+ * 权限问题状态码集合：401（未认证）/ 403（无权限）。
+ * 429（请求过频）被排除在外——它属于登录页场景，按普通错误走 toast，不弹权限告警。
+ */
+const PERMISSION_STATUSES = new Set<number>([401, 403]);
+
+/** 当前 status 是否判定为权限问题（401/403，429 除外）。status 缺失一律按普通错误处理。 */
+function isPermissionStatus(status?: number): boolean {
+    return Boolean(status) && PERMISSION_STATUSES.has(status!);
+}
 
 /** 按优先级解析出最终展示文案（不弹 toast）：① 调用方消息 → ② 兜底词条 → ③ status/statusText 拼接。 */
 function resolveErrorText(data: ErrorHandleData): string {
-    const { message, fallback } = data;
+    const { message, status, fallback } = data;
 
     // ① 已解析出的可读消息优先
     if (message && message.trim()) {
@@ -54,11 +67,15 @@ function resolveErrorText(data: ErrorHandleData): string {
     }
 
     // ③ 词条未命中 → 用 status/statusText 拼最终兜底
-    return `Request failed: ${fallback.status ?? ''} ${fallback.statusText ?? ''}`.trim();
+    return `Request failed: ${status ?? ''} ${fallback.statusText ?? ''}`.trim();
 }
 
 /**
- * 解析错误消息并弹全局 toast（error 变体）；静默路由名单内的页面只返回文案不弹。
+ * 解析错误消息并弹出全局提示。
+ *
+ * 提示形态按状态码区分（静默路由名单内的页面只返回文案不弹）：
+ *  - 权限问题（401/403，429 除外）→ 弹确认弹窗，引导用户重新登录
+ *  - 其它（含 429）→ 弹全局 toast
  * 返回最终展示的文案，便于调用方在日志里复用同一份消息。
  */
 export function errorHandle(data: ErrorHandleData): string {
@@ -67,6 +84,24 @@ export function errorHandle(data: ErrorHandleData): string {
     if (isSilentRoute()) {
         return text;
     }
-    showToast(text, ToastVariant.Error);
+    // 权限问题 → 弹确认弹窗（告警配色），引导重新登录；其它 → toast
+    if (isPermissionStatus(data.status)) {
+        const message = t('auth.permission.message') || text;
+        void showConfirm(message, {
+            title: t('auth.permission.title'),
+            confirmText: t('auth.permission.confirm'),
+            cancelText: t('auth.permission.cancel'),
+            variant: CONFIRM_VARIANT.WARN,
+        }).then((ok) => {
+            if (ok) {
+                // 权限失效：凭证已无效，探针标记为已探测（true），跳登录页前记录回跳路径
+                cacheRedirectAuth(true);
+                // 重新登录：刷新页面，走 auth.middleware 重新解析凭证
+                history.pushState({}, '', SIGNIN_PATH);
+            };
+        });
+    } else {
+        void showToast(text, ToastVariant.Error);
+    }
     return text;
 }

@@ -125,9 +125,11 @@ export async function signin(dto: SigninDto): Promise<SigninResult> {
     };
 }
 
-export async function getUserToken(userId: string): Promise<string | null> {
-    const token = await redisUserCache.get(tokenKey(userId));
-    return token ?? null;
+export async function getUserToken(rawToken: string | undefined): Promise<string | null> {
+    if (!rawToken) return null;
+    // 校验：token 在 Redis 中存在（握手远端会话有效）才回传，过期/伪造返回 null
+    const userId = await redisUserCache.get(tokenKey(rawToken));
+    return userId ? rawToken : null;
 }
 
 
