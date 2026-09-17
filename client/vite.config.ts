@@ -1,6 +1,7 @@
 import { defineConfig, type ProxyOptions } from 'vite';
 import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
+// import { backendReloadPlugin } from './vite.backendReload.ts';
 
 // 常量(扩展名分组/大正则)与工具函数(public 静态检测)分别独立，keep vite.config.ts 干净
 // import { ASSET_EXT_RE } from './vite.constants.ts';
@@ -46,7 +47,13 @@ const currentRootDirname = import.meta.dirname
 export default defineConfig(({ mode }) => {
     const isProdMode = mode === 'production';
     return {
-        plugins: [tailwindcss()],
+        plugins: [
+            tailwindcss(),
+            // 后端 server/src 变更 → tsx 重启 Express 后，通知浏览器整页刷新，
+            // 补上「SSR 页面没有 HMR」的缺口；Docker 下复用同一 watcher 的 usePolling 轮询。
+            // 暂时不启用
+            // backendReloadPlugin(path.resolve(currentRootDirname, '../server/src'), serverPort),
+        ],
         appType: 'spa',
         // 静态资源目录：Vite dev（middleware 模式）与 build 都会把它暴露/复制到站点根路径 /。
         // 开发模式双端口：
