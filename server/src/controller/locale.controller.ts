@@ -19,7 +19,7 @@ export async function getI18n(req: Request, res: Response): Promise<void> {
     const ctx = createWebCtx(req, res);
     const lang = ctx.locals.currentLocale || 'zh-CN';
     const i18nJson = await loadI18n(lang, ctx.userContext.isLogin);
-    ctx.status(200).json({ lang, i18nJson });
+    ctx.status(200).json({ lang, i18nJson, isSuccess: true });
 }
 
 /** POST /change-language —— 语言切换：校验语言码、写 cookie、返回最新语言包 */

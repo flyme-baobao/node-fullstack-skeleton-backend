@@ -66,6 +66,8 @@ async function mountApp(): Promise<void> {
 
         const htmx = await initHtmx();
         setupSpaRouter(htmx);
+
+        console.log('[mountApp] 应用组件初始化完成123');
     } catch (err) {
         // 启动链路任一步失败：关闭遮罩避免卡死白屏（页面级错误反馈由 toast 链路负责）
         console.error('[mountApp] 组件初始化失败', err);

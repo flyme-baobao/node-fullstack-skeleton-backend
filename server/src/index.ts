@@ -19,7 +19,9 @@ if (!isProd) {
     // override:true → 文件优先，纠正 shell/系统里可能残留的同名旧值（如 host=postgres 的 DATABASE_URL）
     // 安全性：develop.yml 只有 DB 容器、没有 app 服务，dev 进程永远跑宿主机，不存在覆盖容器注入的场景；
     //        生产容器 NODE_ENV=production 不进此分支，也不受影响
-    dotenv.config({ path: '.env.development', override: true });
+    const isLocalDev = process.env.LOCAL_DOCKER === '1'; // 本地开发模式，读取 .env.development.local
+    const envFilePath = isLocalDev ? '.env.development.local' : '.env.development';
+    dotenv.config({ path: envFilePath, override: true });
 }
 // 生成 环境 CI注入 和 docker-compose.yml 注入，而且生成环境 也没有 .env 文件
 
@@ -35,6 +37,8 @@ async function main(): Promise<void> {
     await connectRedis();
 
     const app = await createApp();
+
+    console.log(`Node Server backend → createApp finished, NODE_ENV=${process.env.NODE_ENV}, isProd=${isProd}, port=${port}`);
 
     // 生产：Express 直连服务构建产物（dist-client），并对 /list 等深链做 SPA 兜底。
     // 开发（双端口架构）：前端资源由 Vite:5173 出（transform + HMR），其余请求经 proxy 转发回本服务，故不挂 static。

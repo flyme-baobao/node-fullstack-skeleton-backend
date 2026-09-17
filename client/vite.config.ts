@@ -1,6 +1,4 @@
-import dotenv from 'dotenv';
 import { defineConfig, type ProxyOptions } from 'vite';
-import { fileURLToPath } from 'url';
 import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -8,18 +6,14 @@ import tailwindcss from '@tailwindcss/vite';
 // import { ASSET_EXT_RE } from './vite.constants.ts';
 // import { publicFileExists } from './vite.utils.ts';
 
-// NODE_ENV 由【进程环境】决定（docker/cli 注入），不从 .env 读
-const isProd = process.env.NODE_ENV === 'production';
-
-if (!isProd) {
-    // 相对路径会因 dev/build 脚本 chdir 到 client/ 而失效，必须基于本文件位置定位根目录
-    const configDir = path.dirname(fileURLToPath(import.meta.url));
-    // 开发环境：读取 .env，加载到 process.env，不覆盖 已有的环境变量（例如 docker-compose.yml 注入的），避免覆盖掉 compose 注入的端口等配置
-    dotenv.config({ path: path.resolve(configDir, '../.env.development'), override: false });
-}
 // env 驱动端口：VITE_PORT(前端默认5173)、 SERVER_PORT(代理目标/后端默认3006)
 const vitePort = Number(process.env.VITE_PORT) || 5173;
 const serverPort = Number(process.env.SERVER_PORT) || 3006;
+
+// Docker 开发模式（LOCAL_DOCKER=1）：Windows 宿主 → 容器绑定挂载下 fs.watch/inotify 事件不可靠，
+// 必须用轮询监听，否则 TS 改动不会失效 Vite 的 transform 缓存（而 index.html/.ejs 是请求时直读磁盘，故不受影响）。
+// 本地原生 dev（非 docker）继续用原生事件监听，快且省 CPU。
+const isDockerDev = process.env.LOCAL_DOCKER === '1';
 
 let reqId = 0; // 用于给每个请求分配唯一 id，便于日志追踪
 
@@ -37,6 +31,8 @@ const createProxyConfig = (): ProxyOptions => ({
         });
     } 
 })
+
+const currentRootDirname = import.meta.dirname
 
 // 该项目的角色：为服务端渲染的 Express 应用编译前端资源（htmx 入口、CSS）
 // - dev: 独立 dev server（双端口），把「SSR 页面路由」代理到 Express 后端，前端模块交给 Vite transform
@@ -58,7 +54,14 @@ export default defineConfig(({ mode }) => {
         //   - '/' 代理把「页面 / 片段 / API」SSR 路由转发到 Express(SERVER_PORT)
         //   - bypass 语义（Vite 源码确认）：返回「原 url 字符串」= 交给 Vite 中间件 transform；返回 undefined = 代理到后端；返回 false = 直接 404（勿用）
         server: {
+            host: '0.0.0.0',
             port: vitePort,
+            // Docker 绑定挂载下事件监听收不到变更 → 轮询；本地原生 watch 更快，不启用。
+            // interval 200ms：client/ 目录文件量小，开销可忽略；事件驱动的 HMR/失效恢复后，
+            // 改 TS 保存 → Vite 重新 transform → 刷新页面即见新代码。
+            watch: isDockerDev
+                ? { usePolling: true, interval: 200, binaryInterval: 200 }
+                : undefined,
             proxy: {
                 // '/': {
                 //     target: `http://localhost:${serverPort}`,
@@ -132,15 +135,15 @@ export default defineConfig(({ mode }) => {
         },
         resolve: {
             alias: {
-                '@': path.resolve(__dirname, './src'),
-                '@api': path.resolve(__dirname, './src/api'),
-                '@components': path.resolve(__dirname, './src/components'),
-                '@constants': path.resolve(__dirname, './src/constants'),
-                '@i18n': path.resolve(__dirname, './src/i18n'),
-                '@router': path.resolve(__dirname, './src/router'),
-                '@service': path.resolve(__dirname, './src/service'),
-                '@templates': path.resolve(__dirname, './src/templates'),
-                '@utils': path.resolve(__dirname, './src/utils'),
+                '@': path.resolve(currentRootDirname, './src'),
+                '@api': path.resolve(currentRootDirname, './src/api'),
+                '@components': path.resolve(currentRootDirname, './src/components'),
+                '@constants': path.resolve(currentRootDirname, './src/constants'),
+                '@i18n': path.resolve(currentRootDirname, './src/i18n'),
+                '@router': path.resolve(currentRootDirname, './src/router'),
+                '@service': path.resolve(currentRootDirname, './src/service'),
+                '@templates': path.resolve(currentRootDirname, './src/templates'),
+                '@utils': path.resolve(currentRootDirname, './src/utils'),
             },
         },
     };

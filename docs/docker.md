@@ -59,7 +59,8 @@ docker compose --env-file .env up -d
 # ⚠️compose插值默认只读 .env（生产参数，DB_HOST=postgres 宿主机连不上、库名/账号也是 prod 套），develop 栈必须 --env-file 显式指定 .env.development；
 # DB_HOST统一使用.env.development的127.0.0.1；db:init:dev 显式NODE_ENV=development读取宿主机.env.development的DB_*变量
 docker compose --env-file .env.development -f docker-compose.develop.yml up -d
-npm run db:init:dev
+docker compose --env-file .env.development.local -f docker-compose.develop.local.yml up -d
+npm run db:init:dev(npm run db:init:dev:docker)
 npm run dev          # 或只启服务端：npm run dev:server
 
 # ---- 2. 本地全容器模拟生产（完整容器环境、本地构建镜像）----
@@ -95,12 +96,15 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
 #    local 与 test 用的都是 base + 各自 override，停哪套记得带对应文件。
 docker compose -f docker-compose.yml -f docker-compose.local.yml down
 docker compose -f docker-compose.yml -f docker-compose.test.yml down
+docker compose --env-file .env.development -f docker-compose.develop.yml down
+docker compose --env-file .env.development.local -f docker-compose.develop.local.yml down
 
 # ---- 5. 彻底清空 local / test 数据（测试重置使用，谨慎操作）----
 docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
 docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
 # down 不需要环境变量插值（project 名由 develop.yml 的 name: 决定），带 --env-file 仅为命令统一
 docker compose --env-file .env.development -f docker-compose.develop.yml down -v
+docker compose --env-file .env.development.local -f docker-compose.develop.local.yml down -v
 
 # ---- 6. 查询容器里面的环境变量 ----
 docker ps
