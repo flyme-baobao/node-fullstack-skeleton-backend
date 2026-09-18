@@ -14,8 +14,8 @@ const root = path.resolve(__dirname, '..');
 
 // 非生产环境：加载 .env.development（override 与 dev 启动链路一致，文件压过外部残留）
 if (process.env.NODE_ENV !== 'production') {
-    const isLocalDev = process.env.LOCAL_DOCKER === '1'; // 本地开发模式，读取 .env.development.local
-    const envFilePath = isLocalDev ? path.join(root, '.env.development.local') : path.join(root, '.env.development');
+    const isDockerDev = process.env.LOCAL_DOCKER === '1'; // 本地开发模式，读取 .env.development.local
+    const envFilePath = isDockerDev ? path.join(root, '.env.development.local') : path.join(root, '.env.development');
     if (existsSync(envFilePath)) {
         dotenv.config({ path: envFilePath, override: true });
     }
